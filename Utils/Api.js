@@ -55,3 +55,15 @@ export function Variedad() {
   let url = `${ruta()}/invernadero/variedad.php?apikey=${apikey2()}`;
   return url;
 }
+
+
+export function Beneficio() {
+  let url = `${ruta()}/recibo/beneficio.php?apikey=${apikey2()}`;
+  return url;
+}
+
+
+export function ClienteCafe() {
+  let url = `${ruta()}/recibo/clientes.php?apikey=${apikey2()}`;
+  return url;
+}

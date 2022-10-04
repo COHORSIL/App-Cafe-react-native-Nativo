@@ -22,10 +22,10 @@ export default function Router() {
         name="Stack1"
         component={Stack1}
         options={{
-          tabBarLabel: "Catalogo",
+          tabBarLabel: "Home",
           tabBarColor: "#FFFFFF",
           tabBarIcon: ({ color }) => (
-            <Feather name="users" color="#3BA6CF" size={20} />
+            <Feather name="home" color="#3BA6CF" size={20} />
           ),
         }}
       />
@@ -35,10 +35,10 @@ export default function Router() {
         name="Stack2"
         component={Stack2}
         options={{
-          tabBarLabel: "Centros",
+          tabBarLabel: "Estadisticas",
           tabBarColor: "#FFFFFF",
           tabBarIcon: ({ color }) => (
-            <Feather name="users" color="#3BA6CF" size={20} />
+            <Feather name="bar-chart-2" color="#3BA6CF" size={20} />
           ),
         }}
       />
