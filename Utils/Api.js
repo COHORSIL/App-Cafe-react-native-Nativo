@@ -11,7 +11,7 @@ export function apikey2() {
 }
 
 export function ruta() {
-  let ruta = "http://201.190.6.19/rest";
+  let ruta = "https://201.190.6.19/rest";
 
   return ruta;
 }
@@ -65,5 +65,11 @@ export function Beneficio() {
 
 export function ClienteCafe() {
   let url = `${ruta()}/recibo/clientes.php?apikey=${apikey2()}`;
+  return url;
+}
+
+
+export function MarcasCafe() {
+  let url = `${ruta()}/recibo/marca.php?apikey=${apikey2()}`;
   return url;
 }

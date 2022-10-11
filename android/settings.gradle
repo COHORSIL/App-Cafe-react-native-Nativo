@@ -1,4 +1,6 @@
 rootProject.name = 'AwesomeProject'
+include ':react-native-sqlite-storage'
+project(':react-native-sqlite-storage').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-sqlite-storage/platforms/android')
 include ':tp-react-native-bluetooth-printer'
 project(':tp-react-native-bluetooth-printer').projectDir = new File(rootProject.projectDir, '../node_modules/tp-react-native-bluetooth-printer/android')
 
