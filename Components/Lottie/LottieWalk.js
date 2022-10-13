@@ -19,7 +19,7 @@ export default function LottieWalk({ navigation, Clien }) {
           source={require("../../assets/lottlie/54778-files-imported.json")}
           autoPlay
         />
-        <Text style={styles.numv}>{Clien.length}</Text>
+        <Text style={styles.numv}>{Clien}</Text>
       </TouchableOpacity>
     </>
   );

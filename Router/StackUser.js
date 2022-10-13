@@ -21,6 +21,7 @@ export default function StackUser({navigation}) {
   const {foto, departamento, user, idUser, token} = Usuario();
 
   const [DataUser, setDataUser] = useState([]);
+  console.log(DataUser);
 
 
 

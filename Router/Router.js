@@ -14,11 +14,20 @@ const Tab = createMaterialBottomTabNavigator();
 export default function Router() {
   const [Clien, setClien] = useState([]);
   const {RefreshConsulta} = useContext(refreshGlobal);
+  const [PedienteTotal, setPedienteTotal] = useState(0);
+  const [Notalenth, setNotalenth] = useState([]);
 
 
   useEffect(() => {
     PendientesClientes();
+    PendientesNotasLenth()
   }, [RefreshConsulta]);
+
+  useEffect(() => {
+    let suma = Notalenth.length + Clien.length;
+
+    setPedienteTotal(suma);
+  }, [Clien, Notalenth, RefreshConsulta]);
 
   const PendientesClientes = async () => {
     setClien([]);
@@ -39,6 +48,26 @@ export default function Router() {
       throw Error('Error al obtener los datos !!!');
     }
   };
+
+  const PendientesNotasLenth = async () => {
+    const db = await getDBConnection();
+    try {
+      const task = [];
+      const results = await db.executeSql(
+        `SELECT * FROM Notas WHERE Estado LIKE '%1%'`,
+      );
+      results.forEach(result => {
+        for (let index = 0; index < result.rows.length; index++) {
+          task.push(result.rows.item(index));
+        }
+      });
+      setNotalenth(task);
+    } catch (error) {
+      console.error(error);
+      throw Error('Error al obtener los datos !!!');
+    }
+  };
+
   return (
     <Tab.Navigator
       shifting={true}
@@ -53,7 +82,7 @@ export default function Router() {
         options={{
           tabBarLabel: "Home",
           tabBarColor: "#FFFFFF",
-          tabBarBadge: Clien.length == 0 ? null : Clien.length,
+          tabBarBadge: PedienteTotal == 0 ? null : PedienteTotal,
           tabBarIcon: ({ color }) => (
             <Feather name="home" color="#3BA6CF" size={20} />
           ),

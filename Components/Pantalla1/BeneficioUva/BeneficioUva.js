@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ToastAndroid,
 } from 'react-native';
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useContext} from 'react';
 import Stepper from 'react-native-stepper-ui';
 import moment from 'moment/moment';
 import LottiePeso from '../../Lottie/LottiePeso';
@@ -26,17 +26,28 @@ import {
 } from 'react-native-paper';
 import RNPickerSelect from 'react-native-picker-select';
 import {size, map} from 'lodash';
+import {refreshGlobal} from '../../../Context/Context';
 import * as Animatable from 'react-native-animatable';
-import {getDBConnection, getTablaMarcas} from '../../../Utils/db';
+import {
+  getDBConnection,
+  getTablaMarcas,
+  insertTablaNotas,
+} from '../../../Utils/db';
 import uuid from 'react-native-uuid';
 import ModalImpresora from '../../ModalImpresora/ModalImpresora';
+import LoadingLogin from '../../Loading/LoadingLogin';
 import {
   BluetoothManager,
   BluetoothEscposPrinter,
   BluetoothTscPrinter,
 } from 'tp-react-native-bluetooth-printer';
+moment.locale('es');
 
-export default function BeneficioUva() {
+export default function BeneficioUva(props) {
+  const {navigation} = props;
+  const {params} = props.route;
+  navigation.setOptions({title: `Cafe ${params.data}`});
+
   const [active, setActive] = useState(0);
 
   //State de Cliente
@@ -46,10 +57,6 @@ export default function BeneficioUva() {
 
   //State de Pesos
   const [Pesos, setPesos] = useState([]);
-  const [Tipo, setTipo] = useState({
-    label: 'Uva',
-    value: 'Uva',
-  });
   const [SumaLibras, setSumaLibras] = useState([]);
   const [Muestras, setMuestras] = useState([]);
   const [SumaSacos, setSumaSacos] = useState([]);
@@ -68,16 +75,17 @@ export default function BeneficioUva() {
     FrutoBrocado: '',
     Frutoseco: '',
     Materia: '',
+    Mordido: '',
+    Negro: '',
+    Pulpa: '',
+    Pelado: '',
+    Inmaduro: '',
+    Manchado: '',
+    Cereza: '',
+    Otros: '',
   });
   const [Observacion, setObservacion] = useState([]);
 
-  const MyComponent = props => {
-    return (
-      <View>
-        <Text>{props.title}</Text>
-      </View>
-    );
-  };
   const content = [
     <DatosCliente
       setBeneficio={setBeneficio}
@@ -90,8 +98,6 @@ export default function BeneficioUva() {
     <AgregarPesos
       setPesos={setPesos}
       Pesos={Pesos}
-      Tipo={Tipo}
-      setTipo={setTipo}
       SumaLibras={SumaLibras}
       setSumaLibras={setSumaLibras}
       Muestras={Muestras}
@@ -108,19 +114,22 @@ export default function BeneficioUva() {
       setEstadoCafe={setEstadoCafe}
       Observacion={Observacion}
       setObservacion={setObservacion}
+      params={params}
     />,
     <FinalGuardar
       Beneficio={Beneficio}
       Marca={Marca}
       Cliente={Cliente}
       Pesos={Pesos}
-      Tipo={Tipo}
       SumaLibras={SumaLibras}
       Muestras={Muestras}
       SumaSacos={SumaSacos}
       PrecioFijado={PrecioFijado}
       Altura={Altura}
       EstadoCafe={EstadoCafe}
+      Observacion={Observacion}
+      navigation={navigation}
+      params={params}
     />,
   ];
 
@@ -156,44 +165,8 @@ export default function BeneficioUva() {
           content={content}
           onNext={Nextclientes}
           onBack={() => setActive(p => p - 1)}
-          onFinish={() => Alert.alert('Finish')}
-          // showButton={false}
-        ></Stepper>
+          onFinish={() => Alert.alert('Finish')}></Stepper>
       </ScrollView>
-      {/* {active === 0 ? null : (
-        <View style={{position: 'absolute', bottom: '5%', left: '25%'}}>
-          <Button
-            icon="arrow-left"
-            // mode="contained"
-            style={{backgroundColor: '#E15757'}}
-            color="white"
-            onPress={() => setActive(p => p - 1)}>
-            Regresar
-          </Button>
-        </View>
-      )} */}
-
-      {/* <View
-        style={
-          active === 0
-            ? {
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                bottom: '5%',
-                alignItems: 'center',
-              }
-            : {position: 'absolute', bottom: '5%', right: '25%'}
-        }>
-        <Button
-          icon="arrow-right"
-          mode="contained"
-          color="#488F59"
-          contentStyle={{flexDirection: 'row-reverse'}}
-          onPress={() => Nextclientes()}>
-          Siguiente
-        </Button>
-      </View> */}
     </>
   );
 }
@@ -242,10 +215,8 @@ function DatosCliente({
           task.push(result.rows.item(index));
         }
       });
-      console.log(task);
       console.log(task.length);
       setSearcresul(task);
-      // return task;
     } catch (error) {
       console.error(error);
       throw Error('Error al obtener los datos !!!');
@@ -634,8 +605,6 @@ function DatosCliente({
 function AgregarPesos({
   setPesos,
   Pesos,
-  Tipo,
-  setTipo,
   SumaLibras,
   setSumaLibras,
   Muestras,
@@ -662,6 +631,12 @@ function AgregarPesos({
 
   const AddPeso = () => {
     let calcularMuestras = 0;
+
+    if (Number(Datospesos.Sacos) > Number(Datospesos.Libras)) {
+      ToastAndroid.show('Las Libras tienen que ser mayor a los Sacos!', 3000);
+      return;
+    }
+
     map(Pesos, item => {
       calcularMuestras = calcularMuestras + Number(item.Sacos);
     });
@@ -740,27 +715,6 @@ function AgregarPesos({
       </Portal>
 
       <Text style={{textAlign: 'center'}}>Agregar Pesos</Text>
-
-      <View
-        style={{
-          marginRight: '30%',
-          marginLeft: '30%',
-          borderStyle: 'solid',
-          borderRadius: 15,
-          borderWidth: 1,
-          marginTop: 15,
-        }}>
-        <RNPickerSelect
-          onValueChange={value =>
-            setTipo({...Tipo, label: value, value: value})
-          }
-          items={[
-            {label: 'Uva', value: 'Uva'},
-            {label: 'Pergamino', value: 'Pergamino'},
-          ]}
-          value={Tipo.value}
-        />
-      </View>
 
       <View style={{marginRight: '20%', marginLeft: '20%'}}>
         <TextInput
@@ -944,58 +898,90 @@ function Estado({
   setEstadoCafe,
   Observacion,
   setObservacion,
+  params,
 }) {
+  console.log(EstadoCafe);
   return (
     <ScrollView>
       <Text style={{textAlign: 'center'}}> Estado</Text>
 
-      <View style={{marginRight: '23%', marginLeft: '23%'}}>
-        <TextInput
-          style={styles.inputCa}
-          label="Humedadad(Uds)"
-          mode="outlined"
-          selectionColor="#598A99"
-          keyboardType="numeric"
-          activeOutlineColor="#598A99"
-          value={EstadoCafe.Humedad}
-          right={
-            <TextInput.Icon
-              style={styles.icon}
-              type="material-community"
-              name="water-percent"
-              size={30}
-              color="black"
-            />
-          }
-          onChangeText={valor => {
-            setEstadoCafe({...EstadoCafe, Humedad: valor});
-          }}
-        />
-      </View>
+      {params.data === 'Uva' ? null : (
+        <View style={{marginRight: '23%', marginLeft: '23%'}}>
+          <TextInput
+            style={styles.inputCa}
+            label="Humedadad(Uds)"
+            mode="outlined"
+            selectionColor="#598A99"
+            keyboardType="numeric"
+            activeOutlineColor="#598A99"
+            value={EstadoCafe.Humedad}
+            right={
+              <TextInput.Icon
+                style={styles.icon}
+                type="material-community"
+                name="water-percent"
+                size={30}
+                color="black"
+              />
+            }
+            onChangeText={valor => {
+              setEstadoCafe({...EstadoCafe, Humedad: valor});
+            }}
+          />
+        </View>
+      )}
 
-      <View style={{marginRight: '23%', marginLeft: '23%'}}>
-        <TextInput
-          mode="outlined"
-          style={styles.inputCa}
-          label="Fruto Verde(Uds)"
-          value={EstadoCafe.Frutoverde}
-          selectionColor="#598A99"
-          keyboardType="numeric"
-          activeOutlineColor="#598A99"
-          right={
-            <TextInput.Icon
-              style={styles.icon}
-              type="material-community"
-              name="fruit-cherries"
-              size={30}
-              color="black"
-            />
-          }
-          onChangeText={valor => {
-            setEstadoCafe({...EstadoCafe, Frutoverde: valor});
-          }}
-        />
-      </View>
+      {params.data === 'Pergamino' ? null : (
+        <View style={{marginRight: '23%', marginLeft: '23%'}}>
+          <TextInput
+            mode="outlined"
+            style={styles.inputCa}
+            label="Fruto Verde(Uds)"
+            value={EstadoCafe.Frutoverde}
+            selectionColor="#598A99"
+            keyboardType="numeric"
+            activeOutlineColor="#598A99"
+            right={
+              <TextInput.Icon
+                style={styles.icon}
+                type="material-community"
+                name="fruit-cherries"
+                size={30}
+                color="black"
+              />
+            }
+            onChangeText={valor => {
+              setEstadoCafe({...EstadoCafe, Frutoverde: valor});
+            }}
+          />
+        </View>
+      )}
+
+      {params.data === 'Pergamino' ? null : (
+        <View style={{marginRight: '23%', marginLeft: '23%'}}>
+          <TextInput
+            mode="outlined"
+            style={styles.inputCa}
+            label="Fruto Seco(Uds)"
+            value={EstadoCafe.Frutoseco}
+            selectionColor="#598A99"
+            keyboardType="numeric"
+            activeOutlineColor="#598A99"
+            right={
+              <TextInput.Icon
+                style={styles.icon}
+                type="material-community"
+                name="fruit-grapes-outline"
+                size={30}
+                color="black"
+              />
+            }
+            onChangeText={valor => {
+              setEstadoCafe({...EstadoCafe, Frutoseco: valor});
+            }}
+          />
+        </View>
+      )}
 
       <View style={{marginRight: '23%', marginLeft: '23%'}}>
         <TextInput
@@ -1021,12 +1007,194 @@ function Estado({
         />
       </View>
 
+      {params.data === 'Pergamino' ? (
+        <View style={{marginRight: '23%', marginLeft: '23%'}}>
+          <TextInput
+            mode="outlined"
+            style={styles.inputCa}
+            label="Mordido(Uds)"
+            value={EstadoCafe.Mordido}
+            selectionColor="#598A99"
+            keyboardType="numeric"
+            activeOutlineColor="#598A99"
+            right={
+              <TextInput.Icon
+                style={styles.icon}
+                type="material-community"
+                name="spa-outline"
+                size={30}
+                color="black"
+              />
+            }
+            onChangeText={valor => {
+              setEstadoCafe({...EstadoCafe, Mordido: valor});
+            }}
+          />
+        </View>
+      ) : null}
+
+      {params.data === 'Pergamino' ? (
+        <View style={{marginRight: '23%', marginLeft: '23%'}}>
+          <TextInput
+            mode="outlined"
+            style={styles.inputCa}
+            label="Negro(Uds)"
+            value={EstadoCafe.Negro}
+            selectionColor="#598A99"
+            keyboardType="numeric"
+            activeOutlineColor="#598A99"
+            right={
+              <TextInput.Icon
+                style={styles.icon}
+                type="material-community"
+                name="spa-outline"
+                size={30}
+                color="black"
+              />
+            }
+            onChangeText={valor => {
+              setEstadoCafe({...EstadoCafe, Negro: valor});
+            }}
+          />
+        </View>
+      ) : null}
+
+      {params.data === 'Pergamino' ? (
+        <View style={{marginRight: '23%', marginLeft: '23%'}}>
+          <TextInput
+            mode="outlined"
+            style={styles.inputCa}
+            label="Pulpa(Uds)"
+            value={EstadoCafe.Pulpa}
+            selectionColor="#598A99"
+            keyboardType="numeric"
+            activeOutlineColor="#598A99"
+            right={
+              <TextInput.Icon
+                style={styles.icon}
+                type="material-community"
+                name="spa-outline"
+                size={30}
+                color="black"
+              />
+            }
+            onChangeText={valor => {
+              setEstadoCafe({...EstadoCafe, Pulpa: valor});
+            }}
+          />
+        </View>
+      ) : null}
+
+      {params.data === 'Pergamino' ? (
+        <View style={{marginRight: '23%', marginLeft: '23%'}}>
+          <TextInput
+            mode="outlined"
+            style={styles.inputCa}
+            label="Pelado(Uds)"
+            value={EstadoCafe.Pelado}
+            selectionColor="#598A99"
+            keyboardType="numeric"
+            activeOutlineColor="#598A99"
+            right={
+              <TextInput.Icon
+                style={styles.icon}
+                type="material-community"
+                name="spa-outline"
+                size={30}
+                color="black"
+              />
+            }
+            onChangeText={valor => {
+              setEstadoCafe({...EstadoCafe, Pelado: valor});
+            }}
+          />
+        </View>
+      ) : null}
+
+      {params.data === 'Pergamino' ? (
+        <View style={{marginRight: '23%', marginLeft: '23%'}}>
+          <TextInput
+            mode="outlined"
+            style={styles.inputCa}
+            label="Inmaduro(Uds)"
+            value={EstadoCafe.Inmaduro}
+            selectionColor="#598A99"
+            keyboardType="numeric"
+            activeOutlineColor="#598A99"
+            right={
+              <TextInput.Icon
+                style={styles.icon}
+                type="material-community"
+                name="spa-outline"
+                size={30}
+                color="black"
+              />
+            }
+            onChangeText={valor => {
+              setEstadoCafe({...EstadoCafe, Inmaduro: valor});
+            }}
+          />
+        </View>
+      ) : null}
+
+      {params.data === 'Pergamino' ? (
+        <View style={{marginRight: '23%', marginLeft: '23%'}}>
+          <TextInput
+            mode="outlined"
+            style={styles.inputCa}
+            label="Manchado(Uds)"
+            value={EstadoCafe.Manchado}
+            selectionColor="#598A99"
+            keyboardType="numeric"
+            activeOutlineColor="#598A99"
+            right={
+              <TextInput.Icon
+                style={styles.icon}
+                type="material-community"
+                name="spa-outline"
+                size={30}
+                color="black"
+              />
+            }
+            onChangeText={valor => {
+              setEstadoCafe({...EstadoCafe, Manchado: valor});
+            }}
+          />
+        </View>
+      ) : null}
+
+      {params.data === 'Pergamino' ? (
+        <View style={{marginRight: '23%', marginLeft: '23%'}}>
+          <TextInput
+            mode="outlined"
+            style={styles.inputCa}
+            label="Cereza(Uds)"
+            value={EstadoCafe.Cereza}
+            selectionColor="#598A99"
+            keyboardType="numeric"
+            activeOutlineColor="#598A99"
+            right={
+              <TextInput.Icon
+                style={styles.icon}
+                type="material-community"
+                name="spa-outline"
+                size={30}
+                color="black"
+              />
+            }
+            onChangeText={valor => {
+              setEstadoCafe({...EstadoCafe, Cereza: valor});
+            }}
+          />
+        </View>
+      ) : null}
+
       <View style={{marginRight: '23%', marginLeft: '23%'}}>
         <TextInput
           mode="outlined"
           style={styles.inputCa}
-          label="Fruto Seco(Uds)"
-          value={EstadoCafe.Frutoseco}
+          label="Otros(Uds)"
+          value={EstadoCafe.Otros}
           selectionColor="#598A99"
           keyboardType="numeric"
           activeOutlineColor="#598A99"
@@ -1034,13 +1202,13 @@ function Estado({
             <TextInput.Icon
               style={styles.icon}
               type="material-community"
-              name="fruit-grapes-outline"
+              name="spa-outline"
               size={30}
               color="black"
             />
           }
           onChangeText={valor => {
-            setEstadoCafe({...EstadoCafe, Frutoseco: valor});
+            setEstadoCafe({...EstadoCafe, Otros: valor});
           }}
         />
       </View>
@@ -1169,36 +1337,50 @@ function FinalGuardar({
   Marca,
   Cliente,
   Pesos,
-  Tipo,
   SumaLibras,
   Muestras,
   SumaSacos,
   PrecioFijado,
   Altura,
   EstadoCafe,
+  Observacion,
+  navigation,
+  params,
 }) {
   const [Impresora, setImpresora] = useState(false);
+  const [Array, setArray] = useState([]);
+  const [Dialo, setDialo] = useState(false);
+  const hideDialog = () => setDialo(false);
+  const [Loading, setLoading] = useState(false);
+  const {setRefreshConsulta} = useContext(refreshGlobal);
+
+
+ 
+
   useEffect(() => {
+    let fecha = moment().format('DD/MM/YYYY');
+
     let Array = [
       {
         cliente: JSON.stringify(Cliente),
         Beneficio: Beneficio,
         Marca: Marca,
         Pesos: JSON.stringify(Pesos),
-        Tipo: Tipo.value,
+        Tipo: params.data,
         SumaLibras: SumaLibras,
         Muestras: Muestras,
         SumaSacos: SumaSacos,
         PrecioFijado: PrecioFijado.value,
         Altura: Altura.value,
         EstadoCafe: JSON.stringify(EstadoCafe),
+        FechaCreacion: fecha,
+        Estado: 1,
+        Observacion: Observacion,
       },
     ];
 
-    // console.log(Array);
+    setArray(Array[0]);
   }, []);
-
-  console.log(Cliente);
 
   const printText = async () => {
     await BluetoothEscposPrinter.printerAlign(
@@ -1219,7 +1401,7 @@ function FinalGuardar({
     });
 
     await BluetoothEscposPrinter.setBlob(1);
-    await BluetoothEscposPrinter.printText('siguatepeque, Honduras\n\r', {
+    await BluetoothEscposPrinter.printText('Siguatepeque, Honduras\n\r', {
       encoding: 'GBK',
       codepage: 0,
       widthtimes: 0,
@@ -1277,7 +1459,31 @@ function FinalGuardar({
     );
 
     await BluetoothEscposPrinter.printText(
-      `Nombre Productor: ${Cliente.Identidad}\n\r`,
+      `Nombre Productor: ${Cliente.Nombre}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(`Beneficio: CICAM\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(`Marca: ${Marca}\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      `Altura: ${Altura.value}    Estado: ${params.data}\n\r`,
       {
         encoding: 'GBK',
         codepage: 0,
@@ -1287,7 +1493,7 @@ function FinalGuardar({
     );
 
     await BluetoothEscposPrinter.printText(
-      `Beneficio: CICAM\n\r`,
+      `Humedad: ${EstadoCafe.Humedad ? EstadoCafe.Humedad : 0} \n\r`,
       {
         encoding: 'GBK',
         codepage: 0,
@@ -1296,45 +1502,265 @@ function FinalGuardar({
       },
     );
 
-    await BluetoothEscposPrinter.printText(
-      `Marca: Cerro Azul\n\r`,
-      {
-        encoding: 'GBK',
-        codepage: 0,
-        widthtimes: 0,
-        heigthtimes: 0,
-      },
-    );
-
-
-    await BluetoothEscposPrinter.printText(
-      `Altura: ${Altura.value}    Estado: ${Tipo.value}\n\r`,
-      {
-        encoding: 'GBK',
-        codepage: 0,
-        widthtimes: 0,
-        heigthtimes: 0,
-      },
-    );
-    await BluetoothEscposPrinter.printText(
-      `Peso en: Libras\n\r`,
-      {
-        encoding: 'GBK',
-        codepage: 0,
-        widthtimes: 0,
-        heigthtimes: 0,
-      },
-    );
+    await BluetoothEscposPrinter.printText(`Peso en: Libras\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
 
     await BluetoothEscposPrinter.printText(
       '------------Descuentos----------\n\r',
       {},
     );
+    if (params.data === 'Uva') {
+      await BluetoothEscposPrinter.printText(
+        `Fruto Verde: ${
+          EstadoCafe.Frutoverde ? EstadoCafe.Frutoverde : 0
+        }  Fruto Seco: ${EstadoCafe.Frutoseco ? EstadoCafe.Frutoseco : 0}\n\r`,
+        {
+          encoding: 'GBK',
+          codepage: 0,
+          widthtimes: 0,
+          heigthtimes: 0,
+        },
+      );
 
+      await BluetoothEscposPrinter.printText(
+        `Fruto Brocado: ${
+          EstadoCafe.FrutoBrocado ? EstadoCafe.FrutoBrocado : 0
+        }  Materia: ${EstadoCafe.Materia ? EstadoCafe.Materia : 0}\n\r`,
+        {
+          encoding: 'GBK',
+          codepage: 0,
+          widthtimes: 0,
+          heigthtimes: 0,
+        },
+      );
+    } else {
+      await BluetoothEscposPrinter.printText(
+        `Cereza: ${EstadoCafe.Cereza ? EstadoCafe.Cereza : 0}  Inmaduro: ${
+          EstadoCafe.Inmaduro ? EstadoCafe.Inmaduro : 0
+        }\n\r`,
+        {
+          encoding: 'GBK',
+          codepage: 0,
+          widthtimes: 0,
+          heigthtimes: 0,
+        },
+      );
+
+      await BluetoothEscposPrinter.printText(
+        `Manchado: ${EstadoCafe.Manchado ? EstadoCafe.Manchado : 0}  Mordido: ${
+          EstadoCafe.Mordido ? EstadoCafe.Mordido : 0
+        }\n\r`,
+        {
+          encoding: 'GBK',
+          codepage: 0,
+          widthtimes: 0,
+          heigthtimes: 0,
+        },
+      );
+
+      await BluetoothEscposPrinter.printText(
+        `Negro: ${EstadoCafe.Negro ? EstadoCafe.Negro : 0}  Pelado: ${
+          EstadoCafe.Pelado ? EstadoCafe.Pelado : 0
+        }\n\r`,
+        {
+          encoding: 'GBK',
+          codepage: 0,
+          widthtimes: 0,
+          heigthtimes: 0,
+        },
+      );
+
+      await BluetoothEscposPrinter.printText(
+        `Pulpa: ${EstadoCafe.Pulpa ? EstadoCafe.Pulpa : 0}\n\r`,
+        {
+          encoding: 'GBK',
+          codepage: 0,
+          widthtimes: 0,
+          heigthtimes: 0,
+        },
+      );
+    }
+
+    await BluetoothEscposPrinter.printText(
+      '--------------------------------\n\r',
+      {},
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `Precio Fijado: ${PrecioFijado.value}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `Muestras Tomadas: ${Muestras}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(`Observacion: ${Observacion}\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      '--------------------------------\n\r',
+      {},
+    );
+
+    await BluetoothEscposPrinter.printText('     #Sacos:    |    Libras\n\r', {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      '--------------------------------\n\r',
+      {},
+    );
+
+    {
+      Pesos.map(
+        async item =>
+          await BluetoothEscposPrinter.printText(
+            `\t${item.Sacos.padEnd(5, ' ')}   |    ${item.Libras.padEnd(
+              5,
+              ' ',
+            )}\n\r`,
+            {
+              encoding: 'GBK',
+              codepage: 0,
+              widthtimes: 0,
+              heigthtimes: 0,
+            },
+          ),
+      );
+    }
+
+    await BluetoothEscposPrinter.printText(
+      '--------------------------------\n\r',
+      {},
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `Total de Libras: ${SumaLibras}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(`Total de Sacos: ${SumaSacos}\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      `\n\rHora: ${moment().format('LT')}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+    await BluetoothEscposPrinter.printText(
+      `Fecha de Impresion: ${moment().format('L')}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      '\n\r\n\r\n\r--------------------------------\n\r',
+      {},
+    );
+
+    await BluetoothEscposPrinter.printerAlign(
+      BluetoothEscposPrinter.ALIGN.CENTER,
+    );
+    await BluetoothEscposPrinter.printText(`Firma del Cliente\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      '\n\r--------------------------------\n\r',
+      {},
+    );
+    await BluetoothEscposPrinter.printerAlign(
+      BluetoothEscposPrinter.ALIGN.LEFT,
+    );
+    await BluetoothEscposPrinter.printText(
+      `La Nota de Peso Tendra una vigencia de 2 Meses en Deposito:\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      '\n\r--------------------------------\n\r',
+      {},
+    );
+
+    await BluetoothEscposPrinter.printText(
+      '\n\r\n\r\n\r-----Comprobante Beneficio-----\n\r',
+      {},
+    );
+    await BluetoothEscposPrinter.printText(
+      '\n\r-------Fin de Linea-------\n\r',
+      {},
+    );
+  };
+
+  const Guardar = async () => {
+    setDialo(false);
+    setRefreshConsulta(true);
+    setLoading(true);
+    try {
+      const db = await getDBConnection();
+      await insertTablaNotas(db, Array);
+      printText();
+      setRefreshConsulta(false);
+      setLoading(false);
+      navigation.navigate('Pantalla1');
+      console.log('se agregaron los datos en la tabla Notas');
+      db.close;
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
     <>
+      <LoadingLogin isVisible={Loading} text="Agregando Notas" />
       <Text style={{textAlign: 'center'}}>Verificar Datos</Text>
       <ModalImpresora Impresora={Impresora} setImpresora={setImpresora} />
 
@@ -1344,13 +1770,96 @@ function FinalGuardar({
           size={25}
           onPress={() => setImpresora(true)}
         />
-
+        <Text
+          style={{
+            textAlign: 'center',
+            fontWeight: 'bold',
+            color: 'black',
+            fontSize: 20,
+          }}>
+          Cliente
+        </Text>
         <Text>Cliente: {Cliente.Nombre}</Text>
         <Text>Identidad: {Cliente.Identidad}</Text>
         <Text>Marca: {Marca}</Text>
+        <Text>Beneficio: {Marca}</Text>
+        <Text>Estado: {params.data}</Text>
 
-        <Button onPress={() => printText()}>Imprimir</Button>
+        <Text
+          style={{
+            textAlign: 'center',
+            fontWeight: 'bold',
+            color: 'black',
+            fontSize: 20,
+          }}>
+          Pesos
+        </Text>
+        <Text>Total Libras: {SumaLibras}</Text>
+        <Text>Total Sacos: {SumaSacos}</Text>
+        <Text>Muestras: {Muestras}</Text>
+
+        <Text
+          style={{
+            textAlign: 'center',
+            fontWeight: 'bold',
+            color: 'black',
+            fontSize: 20,
+          }}>
+          Descuentos
+        </Text>
+        <Text>Humedad: {EstadoCafe.Humedad ? EstadoCafe.Humedad : 0}</Text>
+        <Text>
+          Fruto verde: {EstadoCafe.Frutoverde ? EstadoCafe.Frutoverde : 0}
+        </Text>
+        <Text>
+          Fruto Brocado: {EstadoCafe.FrutoBrocado ? EstadoCafe.FrutoBrocado : 0}
+        </Text>
+        <Text>
+          Fruto seco: {EstadoCafe.Frutoseco ? EstadoCafe.Frutoseco : 0}
+        </Text>
+        <Text>
+          Materia Extraña: {EstadoCafe.Materia ? EstadoCafe.Materia : 0}
+        </Text>
+
+        <Text>Observacion: {Observacion}</Text>
+
+        <View style={{width: 350, marginLeft: 'auto', marginRight: 'auto'}}>
+          <Button
+            icon="content-save"
+            color="#3F8C4D"
+            mode="contained"
+            onPress={() => setDialo(true)}>
+            Guardar e Imprimir
+          </Button>
+        </View>
       </View>
+
+      <Portal>
+        <Dialog visible={Dialo} onDismiss={hideDialog}>
+          <Dialog.Content>
+            <Paragraph style={{fontWeight: 'bold', fontSize: 20}}>
+              Estas Seguro de la informacion?
+            </Paragraph>
+          </Dialog.Content>
+          <Dialog.Actions style={{marginLeft: 'auto', marginRight: 'auto'}}>
+            <Button
+              icon="arrow-left"
+              color="#AD5A42"
+              mode="contained"
+              onPress={() => hideDialog()}>
+              Verificar
+            </Button>
+            <View style={{margin: 20}}></View>
+            <Button
+              icon="printer"
+              color="#3F8C4D"
+              mode="contained"
+              onPress={() => Guardar()}>
+              Guardar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </>
   );
 }

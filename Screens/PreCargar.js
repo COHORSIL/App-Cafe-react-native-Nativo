@@ -71,11 +71,13 @@ export default function PreCargar({navigation, route}) {
             })
             .catch(error => {
               console.log('error fetch get Cliente', error);
+              setLoading(false);
             });
         }
       }
     } catch (error) {
       console.log(error);
+      setLoading(false);
     }
   };
 

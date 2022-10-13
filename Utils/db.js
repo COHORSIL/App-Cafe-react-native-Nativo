@@ -29,13 +29,12 @@ export async function insertTask(db, item) {
     item.Telefono,
     item.Ubicacion_Finca,
     item.Genero,
-    0
+    0,
   ]);
 }
 
 //Obtener Datos Tabla Cliente
 export async function getTask(db) {
-
   try {
     const task = [];
     const results = await db.executeSql(`SELECT * FROM Clientes`);
@@ -51,7 +50,6 @@ export async function getTask(db) {
   }
 }
 
-
 //-------------------------------------------------MARCAS-----------------------------------------------
 
 //Crear Tablas Marcas
@@ -63,7 +61,7 @@ export async function createTableMarcas(db) {
 //Insertar en tabla Marcas
 export async function insertTablaMarcas(db, item) {
   const insertQuery = 'INSERT INTO Marcas(label, value)  values (?, ?)';
-  await db.executeSql(insertQuery, [item.label, item.value]);
+  await db.executeSql(insertQuery, [item.label, item.label]);
 }
 
 //Obtener Datos Tabla Marcas
@@ -83,10 +81,42 @@ export async function getTablaMarcas(db) {
   }
 }
 
+//-------------------------------------------------Notas-----------------------------------------------
+
+//Crear Tablas Notas
+export async function createTableNotas(db) {
+  const query = `CREATE TABLE IF NOT EXISTS Notas(id INTEGER PRIMARY KEY AUTOINCREMENT, Cliente NVARCHAR(800) ,Beneficio NVARCHAR(50), Marca NVARCHAR(50), Pesos NVARCHAR(800), Tipo NVARCHAR(50), SumaLibras NVARCHAR(50), Muestras NVARCHAR(50), SumaSacos NVARCHAR(50), PrecioFijado NVARCHAR(50), Altura NVARCHAR(50), Descuentos NVARCHAR(800), FechaCreacion NVARCHAR(50), Estado NVARCHAR(50),  Observacion NVARCHAR(200));`;
+  await db.executeSql(query);
+}
+
+//Insertar en tabla Notas
+export async function insertTablaNotas(db, item) {
+  console.log(item);
+  const insertQuery =
+    'INSERT INTO Notas(Cliente, Beneficio, Marca, Pesos, Tipo, SumaLibras, Muestras, SumaSacos, PrecioFijado, Altura, Descuentos, FechaCreacion, Estado, Observacion)  values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
+  await db.executeSql(insertQuery, [
+    item.cliente,
+    item.Beneficio,
+    item.Marca,
+    item.Pesos,
+    item.Tipo,
+    item.SumaLibras,
+    item.Muestras,
+    item.SumaSacos,
+    item.PrecioFijado,
+    item.Altura,
+    item.EstadoCafe,
+    item.FechaCreacion,
+    item.Estado,
+    item.Observacion
+  ]);
+}
+
 //Iniciar base de Datos
 export async function initDatabase() {
   const db = await getDBConnection();
   createTable(db);
   createTableMarcas(db);
+  createTableNotas(db);
   db.close;
 }

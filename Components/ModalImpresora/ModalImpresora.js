@@ -27,10 +27,9 @@ export default function ModalImpresora({Impresora, setImpresora}) {
       scannedDevices => {
         const parsedObj = JSON.parse(scannedDevices);
         console.log(parsedObj);
-
         if (size(parsedObj.paired) > 0) {
           setPrintEncontradas(parsedObj.paired);
-          ImpresoraLocal()
+          ImpresoraLocal();
         }
       },
       er => {
@@ -50,13 +49,13 @@ export default function ModalImpresora({Impresora, setImpresora}) {
         s => {
           console.log('s', s);
           AsyncStorage.setItem('print', JSON.stringify(item));
-          setConectada(item)
+          setConectada(item);
           setEstado(true);
         },
         e => {
           console.log('e', e);
           setEstado(false);
-          setConectada([])
+          setConectada([]);
         },
       );
   };
@@ -64,21 +63,18 @@ export default function ModalImpresora({Impresora, setImpresora}) {
   const ImpresoraLocal = async () => {
     const value = await AsyncStorage.getItem('print');
     let print = JSON.parse(value);
-    console.log("value", JSON.parse (value));
-
+ 
     if (value !== null) {
       setConectada(print);
       BluetoothManager.connect(print.address) // the device address scanned.
         .then(
           s => {
-            console.log('s', s);
+            console.log('Conectada');
             setEstado(true);
           },
           e => {
-            console.log('e', e);
+            console.log('Desconectada');
             setEstado(false);
-            AsyncStorage.removeItem('print');
-            setConectada([])
           },
         );
       return;

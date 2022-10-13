@@ -8,6 +8,7 @@ import Pantalla1 from '../Components/Pantalla1/Pantalla1';
 import BeneficioUva from '../Components/Pantalla1/BeneficioUva/BeneficioUva';
 import AddCliente from '../Components/Pantalla1/AddCliente/AddCliente';
 import Pendientes from '../Components/Pantalla1/Pendientes/Pendientes';
+import VerNotas from '../Components/Pantalla1/VerNotas/VerNotas';
 
 const Stack = createStackNavigator();
 
@@ -53,6 +54,14 @@ export default function Stack1() {
         component={Pendientes}
         options={({route, navigation}) => ({
           title: 'Enviar Pendientes',
+        })}
+      />
+
+      <Stack.Screen
+        name="VerNotas"
+        component={VerNotas}
+        options={({route, navigation}) => ({
+          title: 'Detalle',
         })}
       />
     </Stack.Navigator>
