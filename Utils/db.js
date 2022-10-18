@@ -13,14 +13,14 @@ export async function getDBConnection() {
 
 //Crear Tablas Cliente
 export async function createTable(db) {
-  const query = `CREATE TABLE IF NOT EXISTS Clientes(id INTEGER PRIMARY KEY AUTOINCREMENT, Codigo NVARCHAR(13) ,Nombre NVARCHAR(150), Identidad NVARCHAR(13), direccion NVARCHAR(300), telefono NVARCHAR(8), ubicacionFinca NVARCHAR(300), genero NVARCHAR(8), estado NVARCHAR(8) ) ;`;
+  const query = `CREATE TABLE IF NOT EXISTS Clientes(id INTEGER PRIMARY KEY AUTOINCREMENT, Codigo NVARCHAR(13) ,Nombre NVARCHAR(150), Identidad NVARCHAR(13), direccion NVARCHAR(300), telefono NVARCHAR(8), ubicacionFinca NVARCHAR(300), genero NVARCHAR(8), estado NVARCHAR(8), FechaCreacion NVARCHAR(50)) ;`;
   await db.executeSql(query);
 }
 
 //Insertar en tabla Cliente
 export async function insertTask(db, item) {
   const insertQuery =
-    'INSERT INTO Clientes (Codigo, Nombre, Identidad, direccion, telefono, ubicacionFinca, genero, estado)  values (?,?,?,?,?,?,?,?)';
+    'INSERT INTO Clientes (Codigo, Nombre, Identidad, direccion, telefono, ubicacionFinca, genero, estado, FechaCreacion)  values (?,?,?,?,?,?,?,?,?)';
   await db.executeSql(insertQuery, [
     item.Codigo,
     item.Nombre,
@@ -30,6 +30,7 @@ export async function insertTask(db, item) {
     item.Ubicacion_Finca,
     item.Genero,
     0,
+    null
   ]);
 }
 
@@ -54,14 +55,14 @@ export async function getTask(db) {
 
 //Crear Tablas Marcas
 export async function createTableMarcas(db) {
-  const query = `CREATE TABLE IF NOT EXISTS Marcas(id INTEGER PRIMARY KEY AUTOINCREMENT, label NVARCHAR(50) ,value NVARCHAR(50)) ;`;
+  const query = `CREATE TABLE IF NOT EXISTS Marcas(value NVARCHAR(50) PRIMARY KEY, label NVARCHAR(50)) ;`;
   await db.executeSql(query);
 }
 
 //Insertar en tabla Marcas
 export async function insertTablaMarcas(db, item) {
-  const insertQuery = 'INSERT INTO Marcas(label, value)  values (?, ?)';
-  await db.executeSql(insertQuery, [item.label, item.label]);
+  const insertQuery = 'INSERT INTO Marcas(value,label)  values (?, ?)';
+  await db.executeSql(insertQuery, [item.value, item.label]);
 }
 
 //Obtener Datos Tabla Marcas
@@ -81,23 +82,86 @@ export async function getTablaMarcas(db) {
   }
 }
 
+//-------------------------------------------------PROPIETARIO-----------------------------------------------
+
+//Crear Tablas Propietario
+export async function createTablePropietario(db) {
+  const query = `CREATE TABLE IF NOT EXISTS Propietario(value NVARCHAR(50) PRIMARY KEY, label NVARCHAR(50)) ;`;
+  await db.executeSql(query);
+}
+
+//Insertar en tabla Marcas
+export async function insertTablaPropietario(db, item) {
+  const insertQuery = 'INSERT INTO Propietario(value,label)  values (?, ?)';
+  await db.executeSql(insertQuery, [item.value, item.label]);
+}
+
+//Obtener Datos Tabla Marcas
+export async function getTablaPropietario(db) {
+  try {
+    const task = [];
+    const results = await db.executeSql(`SELECT * FROM Propietario`);
+    results.forEach(result => {
+      for (let index = 0; index < result.rows.length; index++) {
+        task.push(result.rows.item(index));
+      }
+    });
+    return task;
+  } catch (error) {
+    console.error(error);
+    throw Error('Error al obtener los datos de la tabla marcas!!!');
+  }
+}
+
+//-------------------------------------------------Correlativo-----------------------------------------------
+
+//Crear Tablas Propietario
+export async function createTableCorrelativo(db) {
+  const query = `CREATE TABLE IF NOT EXISTS Correlativo(id INTEGER PRIMARY KEY AUTOINCREMENT, correlativo NVARCHAR(50)) ;`;
+  await db.executeSql(query);
+}
+
+//Insertar en tabla Marcas
+export async function insertTablaCorrelativo(db, item) {
+  const insertQuery = 'INSERT INTO Correlativo(correlativo)  values (?)';
+  await db.executeSql(insertQuery, [item.Maximo]);
+}
+
+//Obtener Datos Tabla Marcas
+export async function getTablaCorrelativo(db) {
+  try {
+    const task = [];
+    const results = await db.executeSql(`SELECT * FROM Correlativo`);
+    results.forEach(result => {
+      for (let index = 0; index < result.rows.length; index++) {
+        task.push(result.rows.item(index));
+      }
+    });
+    return task;
+  } catch (error) {
+    console.error(error);
+    throw Error('Error al obtener los datos de la tabla Correlativo!!!');
+  }
+}
+
 //-------------------------------------------------Notas-----------------------------------------------
 
 //Crear Tablas Notas
 export async function createTableNotas(db) {
-  const query = `CREATE TABLE IF NOT EXISTS Notas(id INTEGER PRIMARY KEY AUTOINCREMENT, Cliente NVARCHAR(800) ,Beneficio NVARCHAR(50), Marca NVARCHAR(50), Pesos NVARCHAR(800), Tipo NVARCHAR(50), SumaLibras NVARCHAR(50), Muestras NVARCHAR(50), SumaSacos NVARCHAR(50), PrecioFijado NVARCHAR(50), Altura NVARCHAR(50), Descuentos NVARCHAR(800), FechaCreacion NVARCHAR(50), Estado NVARCHAR(50),  Observacion NVARCHAR(200));`;
+  const query = `CREATE TABLE IF NOT EXISTS Notas(id INTEGER PRIMARY KEY AUTOINCREMENT, Cliente NVARCHAR(800), NombreCliente NVARCHAR(50), Beneficio NVARCHAR(50), Marca NVARCHAR(50), NMarca NVARCHAR(50), Pesos NVARCHAR(800), Tipo NVARCHAR(50), SumaLibras NVARCHAR(50), Muestras NVARCHAR(50), SumaSacos NVARCHAR(50), PrecioFijado NVARCHAR(50), Altura NVARCHAR(50), Descuentos NVARCHAR(800), FechaCreacion NVARCHAR(50), Estado NVARCHAR(50), Observacion NVARCHAR(200), Propie NVARCHAR(50), Npropie NVARCHAR(50), Correlativo NVARCHAR(50), DescuentoTotal NVARCHAR(50), Neto NVARCHAR(50));`;
   await db.executeSql(query);
 }
 
 //Insertar en tabla Notas
 export async function insertTablaNotas(db, item) {
-  console.log(item);
   const insertQuery =
-    'INSERT INTO Notas(Cliente, Beneficio, Marca, Pesos, Tipo, SumaLibras, Muestras, SumaSacos, PrecioFijado, Altura, Descuentos, FechaCreacion, Estado, Observacion)  values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
+    'INSERT INTO Notas(Cliente, NombreCliente,  Beneficio, Marca, NMarca, Pesos, Tipo, SumaLibras, Muestras, SumaSacos, PrecioFijado, Altura, Descuentos, FechaCreacion, Estado, Observacion, Propie, Npropie, Correlativo, DescuentoTotal, Neto)  values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
   await db.executeSql(insertQuery, [
     item.cliente,
+    item.NombreCliente,
     item.Beneficio,
     item.Marca,
+    item.NMarca,
     item.Pesos,
     item.Tipo,
     item.SumaLibras,
@@ -108,7 +172,12 @@ export async function insertTablaNotas(db, item) {
     item.EstadoCafe,
     item.FechaCreacion,
     item.Estado,
-    item.Observacion
+    item.Observacion,
+    item.Propie,
+    item.Npropie,
+    item.Correlativo,
+    item.Descuento,
+    item.Neto,
   ]);
 }
 
@@ -118,5 +187,7 @@ export async function initDatabase() {
   createTable(db);
   createTableMarcas(db);
   createTableNotas(db);
+  createTablePropietario(db);
+  createTableCorrelativo(db);
   db.close;
 }

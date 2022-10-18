@@ -21,18 +21,22 @@ import {
   Paragraph,
   Dialog,
   Portal,
-  Provider,
-  Modal,
+  DataTable,
 } from 'react-native-paper';
 import RNPickerSelect from 'react-native-picker-select';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {size, map} from 'lodash';
 import {refreshGlobal} from '../../../Context/Context';
+import jwt_decode from 'jwt-decode';
 import * as Animatable from 'react-native-animatable';
 import {
   getDBConnection,
   getTablaMarcas,
+  getTablaPropietario,
   insertTablaNotas,
 } from '../../../Utils/db';
+import {Beneficio} from '../../../Utils/Api';
+import Usuario from '../../../Hooks/Usuario';
 import uuid from 'react-native-uuid';
 import ModalImpresora from '../../ModalImpresora/ModalImpresora';
 import LoadingLogin from '../../Loading/LoadingLogin';
@@ -53,7 +57,11 @@ export default function BeneficioUva(props) {
   //State de Cliente
   const [Beneficio, setBeneficio] = useState([]);
   const [Marca, setMarca] = useState([]);
+  const [NMarca, setNMarca] = useState([]);
+  const [Propie, setPropie] = useState('1');
+  const [Npropie, setNpropie] = useState([]);
   const [Cliente, setCliente] = useState([]);
+  const [Correlati, setCorrelati] = useState([]);
 
   //State de Pesos
   const [Pesos, setPesos] = useState([]);
@@ -94,6 +102,12 @@ export default function BeneficioUva(props) {
       Marca={Marca}
       setCliente={setCliente}
       Cliente={Cliente}
+      setNMarca={setNMarca}
+      Propie={Propie}
+      setPropie={setPropie}
+      setNpropie={setNpropie}
+      setCorrelati={setCorrelati}
+      Correlati={Correlati}
     />,
     <AgregarPesos
       setPesos={setPesos}
@@ -115,6 +129,7 @@ export default function BeneficioUva(props) {
       Observacion={Observacion}
       setObservacion={setObservacion}
       params={params}
+      Muestras={Muestras}
     />,
     <FinalGuardar
       Beneficio={Beneficio}
@@ -130,11 +145,20 @@ export default function BeneficioUva(props) {
       Observacion={Observacion}
       navigation={navigation}
       params={params}
+      NMarca={NMarca}
+      Propie={Propie}
+      Npropie={Npropie}
+      Correlati={Correlati}
     />,
   ];
 
   const Nextclientes = () => {
     if (active === 0) {
+      if (size(Marca) <= 0) {
+        ToastAndroid.show('Seleccione Una Marca!', 3000);
+        return;
+      }
+
       if (Cliente == '') {
         ToastAndroid.show('Seleccione Cliente!', 3000);
         return;
@@ -178,21 +202,43 @@ function DatosCliente({
   setMarca,
   setCliente,
   Cliente,
+  setNMarca,
+  Propie,
+  setPropie,
+  setNpropie,
+  Correlati,
+  setCorrelati,
 }) {
   const [searchi, setSearchi] = useState('');
   const [Searcresul, setSearcresul] = useState([]);
   const [Marcasdata, setMarcasdata] = useState([]);
+  const [PropietarioDatos, setPropietarioDatos] = useState([]);
 
   useEffect(() => {
     ObtenerDatosMarcas();
+    ObtenerDatosPropietario();
     ClientesPre();
+    Beneficios();
+    Correlativo();
   }, []);
+
+  const {token} = Usuario();
 
   const ObtenerDatosMarcas = async () => {
     try {
       const db = await getDBConnection();
       const taskdatabase = await getTablaMarcas(db);
       setMarcasdata(taskdatabase);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const ObtenerDatosPropietario = async () => {
+    try {
+      const db = await getDBConnection();
+      const taskdatabase = await getTablaPropietario(db);
+      setPropietarioDatos(taskdatabase);
     } catch (error) {
       console.log(error);
     }
@@ -242,38 +288,65 @@ function DatosCliente({
     }
   };
 
-  const pickerStyle = {
-    inputIOS: {
-      color: 'black',
-      paddingTop: 13,
-      paddingHorizontal: 10,
-      paddingBottom: 12,
-      textAlign: 'center',
-      fontSize: 40,
-      fontWeight: 'bold',
-    },
-    inputAndroid: {
-      color: 'black',
-      textAlign: 'center',
-      fontSize: 40,
-      fontWeight: 'bold',
-    },
-    placeholderColor: 'black',
-    underline: {borderTopWidth: 3},
-    icon: {
-      position: 'absolute',
-      backgroundColor: 'transparent',
-      borderTopWidth: 5,
-      borderTopColor: 'black',
-      borderRightWidth: 5,
-      borderRightColor: 'transparent',
-      borderLeftWidth: 5,
-      borderLeftColor: 'transparent',
-      width: 0,
-      height: 0,
-      top: 20,
-      right: 15,
-    },
+  const Beneficios = async () => {
+    const value = await AsyncStorage.getItem('Beneficio');
+
+    if (value !== null) {
+      setBeneficio(JSON.parse(value));
+    } else {
+    }
+  };
+
+  const ConsultaMarca = async value => {
+    const db = await getDBConnection();
+    try {
+      const task = [];
+      const results = await db.executeSql(
+        `SELECT * FROM Marcas WHERE value LIKE ${value}`,
+      );
+      results.forEach(result => {
+        for (let index = 0; index < result.rows.length; index++) {
+          task.push(result.rows.item(index));
+        }
+      });
+      if (size(task) > 0) {
+        setMarca(task[0].value);
+        setNMarca(task[0].label);
+      }
+    } catch (error) {
+      console.error(error);
+      throw Error('Error al obtener los datos !!!');
+    }
+  };
+
+  const ConsultaPro = async value => {
+    const db = await getDBConnection();
+    try {
+      const task = [];
+      const results = await db.executeSql(
+        `SELECT * FROM Propietario WHERE value LIKE ${value}`,
+      );
+      results.forEach(result => {
+        for (let index = 0; index < result.rows.length; index++) {
+          task.push(result.rows.item(index));
+        }
+      });
+      if (size(task) > 0) {
+        setPropie(task[0].value);
+        setNpropie(task[0].label);
+      }
+    } catch (error) {
+      console.error(error);
+      throw Error('Error al obtener los datos !!!');
+    }
+  };
+
+  const Correlativo = async () => {
+    const value = await AsyncStorage.getItem('Correlativo');
+
+    if (value !== null) {
+      setCorrelati(value);
+    }
   };
 
   return (
@@ -295,7 +368,13 @@ function DatosCliente({
             size={25}
             color="#BD5F4B"
           />
-          <Text style={styles.Title}>No. Factura :</Text>
+          {size(Correlati) > 0 ? (
+            <Text style={styles.Title}>
+              No. Factura: {Number(Correlati) + 1}
+            </Text>
+          ) : (
+            <Text style={styles.Title}>No. Factura: </Text>
+          )}
         </View>
 
         <View
@@ -335,28 +414,9 @@ function DatosCliente({
           />
         </View>
 
-        {size(Marcasdata) > 0 ? (
-          <View
-            style={{
-              backgroundColor: '#909090',
-              borderRadius: 10,
-              width: '80%',
-              marginLeft: 'auto',
-              marginRight: 'auto',
-            }}>
-            <RNPickerSelect
-              placeholder={{
-                label: 'Seleccione un Beneficio',
-                value: null,
-              }}
-              onValueChange={value => setBeneficio(value)}
-              items={Marcasdata}
-              value={Benefic ? Benefic : null}
-            />
-          </View>
-        ) : (
-          <Text style={{color: 'black'}}>Sin datos</Text>
-        )}
+        <Text style={{textAlign: 'center', fontWeight: 'bold', fontSize: 18}}>
+          {Benefic.Nombre ? Benefic.Nombre.toUpperCase() : 'Sin Beneficios'}
+        </Text>
       </View>
 
       <View>
@@ -394,9 +454,54 @@ function DatosCliente({
                 label: 'Seleccione una Marca',
                 value: null,
               }}
-              onValueChange={value => setMarca(value)}
+              onValueChange={value => ConsultaMarca(value)}
               items={Marcasdata}
               value={Marca ? Marca : null}
+            />
+          </View>
+        ) : (
+          <Text style={{color: 'black'}}>Sin datos</Text>
+        )}
+      </View>
+
+      <View>
+        <Text
+          style={{
+            position: 'absolute',
+            color: 'black',
+            top: 20,
+            left: '10%',
+            color: '#909090',
+          }}>
+          Propietario
+        </Text>
+        <View style={{width: '10%', marginTop: 15}}>
+          <Icon
+            style={styles.icon}
+            type="material-community"
+            name="checkbox-marked-circle-outline"
+            size={35}
+            color="#909090"
+          />
+        </View>
+
+        {size(PropietarioDatos) > 0 ? (
+          <View
+            style={{
+              backgroundColor: '#909090',
+              borderRadius: 10,
+              width: '80%',
+              marginLeft: 'auto',
+              marginRight: 'auto',
+            }}>
+            <RNPickerSelect
+              placeholder={{
+                label: 'Seleccione un Propietario',
+                value: null,
+              }}
+              onValueChange={value => ConsultaPro(value)}
+              items={PropietarioDatos}
+              value={Propie ? Propie : null}
             />
           </View>
         ) : (
@@ -523,12 +628,12 @@ function DatosCliente({
                   }}>
                   <Text
                     style={{
-                      textAlign: 'right',
+                      textAlign: 'left',
                       fontWeight: 'bold',
                       color: '#878581',
-                      fontSize: 13,
+                      fontSize: 10,
                     }}>
-                    {/* #{item.Codigo.trim()} */}
+                    #{item.Identidad}
                   </Text>
 
                   <View
@@ -899,11 +1004,11 @@ function Estado({
   Observacion,
   setObservacion,
   params,
+  Muestras,
 }) {
-  console.log(EstadoCafe);
   return (
     <ScrollView>
-      <Text style={{textAlign: 'center'}}> Estado</Text>
+      <Text style={{textAlign: 'center'}}> Muestras ({Muestras})</Text>
 
       {params.data === 'Uva' ? null : (
         <View style={{marginRight: '23%', marginLeft: '23%'}}>
@@ -1237,7 +1342,7 @@ function Estado({
         />
       </View>
 
-      <View style={{marginRight: '23%', marginLeft: '23%'}}>
+      <View style={{marginRight: '15%', marginLeft: '15%'}}>
         <TextInput
           multiline={true}
           numberOfLines={4}
@@ -1346,6 +1451,10 @@ function FinalGuardar({
   Observacion,
   navigation,
   params,
+  NMarca,
+  Propie,
+  Npropie,
+  Correlati,
 }) {
   const [Impresora, setImpresora] = useState(false);
   const [Array, setArray] = useState([]);
@@ -1353,18 +1462,39 @@ function FinalGuardar({
   const hideDialog = () => setDialo(false);
   const [Loading, setLoading] = useState(false);
   const {setRefreshConsulta} = useContext(refreshGlobal);
-
-
- 
+  const [VisibleBene, setVisibleBene] = useState(false);
+  const [Descuebto, setDescuebto] = useState({
+    Verde: 0,
+    Brocado: 0,
+    Seco: 0,
+    Mordido: 0,
+    Negro: 0,
+    Pulpa: 0,
+    Pelado: 0,
+    Inmaduro: 0,
+    Manchado: 0,
+    Cereza: 0,
+    Otros: 0,
+    Materia: 0,
+  });
+  const [SumaDes, setSumaDes] = useState(0);
+  const [SoloSuma, setSoloSuma] = useState(0);
+  const [Neto, setNeto] = useState({
+    desc: 0,
+    total: 0,
+  });
 
   useEffect(() => {
     let fecha = moment().format('DD/MM/YYYY');
+    let Corre = Number(Correlati) + 1;
 
     let Array = [
       {
         cliente: JSON.stringify(Cliente),
-        Beneficio: Beneficio,
+        NombreCliente: Cliente.Nombre,
+        Beneficio: Beneficio.id,
         Marca: Marca,
+        NMarca: NMarca,
         Pesos: JSON.stringify(Pesos),
         Tipo: params.data,
         SumaLibras: SumaLibras,
@@ -1376,10 +1506,119 @@ function FinalGuardar({
         FechaCreacion: fecha,
         Estado: 1,
         Observacion: Observacion,
+        Propie: Propie,
+        Npropie: Npropie,
+        Correlativo: String(Corre),
+        Descuento: SumaDes.toFixed(2),
+        Neto: Neto.total.toFixed(2),
       },
     ];
 
     setArray(Array[0]);
+    // console.log(Array[0]);
+  }, [Dialo]);
+
+
+  const Guardar = async () => {
+    let Corre = Number(Correlati) + 1;
+    setDialo(false);
+    setRefreshConsulta(true);
+    setLoading(true);
+    try {
+      const db = await getDBConnection();
+      await insertTablaNotas(db, Array);
+      printText();
+      setRefreshConsulta(false);
+
+      AsyncStorage.setItem('Correlativo', String(Corre));
+      // navigation.navigate('Pantalla1');
+
+      setTimeout(() => {
+        setVisibleBene(true);
+        setLoading(false);
+      }, 4000);
+      setVisibleBene(false);
+      console.log('se agregaron los datos en la tabla Notas');
+      db.close;
+    } catch (error) {
+      console.log(error);
+      setLoading(false);
+      setRefreshConsulta(false);
+      setVisibleBene(false);
+    }
+  };
+
+  useEffect(() => {
+    let Verde = Number(EstadoCafe.Frutoverde) / Number(Muestras);
+    let Brocado = (Number(EstadoCafe.FrutoBrocado) * 0.5) / Number(Muestras);
+    let Seco = (Number(EstadoCafe.Frutoseco) * 0.5) / Number(Muestras);
+    let Mordido = Number(EstadoCafe.Mordido) / Number(Muestras);
+    let Negro = Number(EstadoCafe.Negro) / Number(Muestras);
+    let Pulpa = Number(EstadoCafe.Pulpa) / Number(Muestras);
+    let Pelado = Number(EstadoCafe.Pelado) / Number(Muestras);
+    let Inmaduro = Number(EstadoCafe.Inmaduro) / Number(Muestras);
+    let Manchado = Number(EstadoCafe.Manchado) / Number(Muestras);
+    let Cereza = Number(EstadoCafe.Cereza) / Number(Muestras);
+    let Otros = Number(EstadoCafe.Otros) / Number(Muestras);
+    let Materia = Number(EstadoCafe.Materia) / Number(Muestras);
+
+    setDescuebto({
+      ...Descuebto,
+      Verde: Verde,
+      Brocado: Brocado,
+      Seco: Seco,
+      Mordido: Mordido,
+      Negro: Negro,
+      Pulpa: Pulpa,
+      Pelado: Pelado,
+      Inmaduro: Inmaduro,
+      Manchado: Manchado,
+      Cereza: Cereza,
+      Otros: Otros,
+      Materia: Materia,
+    });
+
+    let suma =
+      Verde +
+      Brocado +
+      Seco +
+      Mordido +
+      Negro +
+      Pulpa +
+      Pelado +
+      Inmaduro +
+      Manchado +
+      Cereza +
+      Otros +
+      Materia;
+
+    setSoloSuma(suma);
+
+    if (params.data === 'Pergamino') {
+      if (suma > 6.5) {
+        setSumaDes(suma - 6.5);
+        let neto = Number(SumaLibras) - Number(SumaSacos);
+        let descu = (suma - 6.5) / 100;
+        let TotalNeto = neto - neto * descu;
+        setNeto({...Neto, desc: neto * descu, total: TotalNeto});
+      } else {
+        let neto = Number(SumaLibras) - Number(SumaSacos);
+        setSumaDes(0);
+        setNeto({...Neto, desc: 0, total: neto});
+      }
+    } else {
+      if (suma > 8.5) {
+        setSumaDes(suma - 8.5);
+        let neto = Number(SumaLibras) - Number(SumaSacos);
+        let descu = (suma - 8.5) / 100;
+        let TotalNeto = neto - neto * descu;
+        setNeto({...Neto, desc: neto * descu, total: TotalNeto});
+      } else {
+        let neto = Number(SumaLibras) - Number(SumaSacos);
+        setSumaDes(0);
+        setNeto({...Neto, desc: 0, total: neto});
+      }
+    }
   }, []);
 
   const printText = async () => {
@@ -1415,7 +1654,7 @@ function FinalGuardar({
       heigthtimes: 0,
     });
 
-    await BluetoothEscposPrinter.printText('Nota de peso: F-RP-GC-72\n\r', {
+    await BluetoothEscposPrinter.printText('Nota de peso: F-RP-SC-72\n\r', {
       encoding: 'GBK',
       codepage: 0,
       widthtimes: 0,
@@ -1431,15 +1670,18 @@ function FinalGuardar({
       BluetoothEscposPrinter.ALIGN.LEFT,
     );
     await BluetoothEscposPrinter.setBlob(1);
-    await BluetoothEscposPrinter.printText('Nota de peso NO: CI-3\n\r', {
-      encoding: 'GBK',
-      codepage: 0,
-      widthtimes: 0,
-      heigthtimes: 0,
-    });
+    await BluetoothEscposPrinter.printText(
+      `Nota de peso NO: ${Number(Correlati) + 1}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
 
     await BluetoothEscposPrinter.printText(
-      `Fecha: ${moment().format('L')}\n\r`,
+      `Fecha: ${moment().format('DD/MM/YYYY')}\n\r`,
       {
         encoding: 'GBK',
         codepage: 0,
@@ -1468,14 +1710,17 @@ function FinalGuardar({
       },
     );
 
-    await BluetoothEscposPrinter.printText(`Beneficio: CICAM\n\r`, {
-      encoding: 'GBK',
-      codepage: 0,
-      widthtimes: 0,
-      heigthtimes: 0,
-    });
+    await BluetoothEscposPrinter.printText(
+      `Beneficio: ${Beneficio.Nombre}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
 
-    await BluetoothEscposPrinter.printText(`Marca: ${Marca}\n\r`, {
+    await BluetoothEscposPrinter.printText(`Marca: ${NMarca}\n\r`, {
       encoding: 'GBK',
       codepage: 0,
       widthtimes: 0,
@@ -1513,76 +1758,29 @@ function FinalGuardar({
       '------------Descuentos----------\n\r',
       {},
     );
-    if (params.data === 'Uva') {
-      await BluetoothEscposPrinter.printText(
-        `Fruto Verde: ${
-          EstadoCafe.Frutoverde ? EstadoCafe.Frutoverde : 0
-        }  Fruto Seco: ${EstadoCafe.Frutoseco ? EstadoCafe.Frutoseco : 0}\n\r`,
-        {
-          encoding: 'GBK',
-          codepage: 0,
-          widthtimes: 0,
-          heigthtimes: 0,
-        },
-      );
 
-      await BluetoothEscposPrinter.printText(
-        `Fruto Brocado: ${
-          EstadoCafe.FrutoBrocado ? EstadoCafe.FrutoBrocado : 0
-        }  Materia: ${EstadoCafe.Materia ? EstadoCafe.Materia : 0}\n\r`,
-        {
-          encoding: 'GBK',
-          codepage: 0,
-          widthtimes: 0,
-          heigthtimes: 0,
-        },
-      );
-    } else {
-      await BluetoothEscposPrinter.printText(
-        `Cereza: ${EstadoCafe.Cereza ? EstadoCafe.Cereza : 0}  Inmaduro: ${
-          EstadoCafe.Inmaduro ? EstadoCafe.Inmaduro : 0
-        }\n\r`,
-        {
-          encoding: 'GBK',
-          codepage: 0,
-          widthtimes: 0,
-          heigthtimes: 0,
-        },
-      );
-
-      await BluetoothEscposPrinter.printText(
-        `Manchado: ${EstadoCafe.Manchado ? EstadoCafe.Manchado : 0}  Mordido: ${
-          EstadoCafe.Mordido ? EstadoCafe.Mordido : 0
-        }\n\r`,
-        {
-          encoding: 'GBK',
-          codepage: 0,
-          widthtimes: 0,
-          heigthtimes: 0,
-        },
-      );
-
-      await BluetoothEscposPrinter.printText(
-        `Negro: ${EstadoCafe.Negro ? EstadoCafe.Negro : 0}  Pelado: ${
-          EstadoCafe.Pelado ? EstadoCafe.Pelado : 0
-        }\n\r`,
-        {
-          encoding: 'GBK',
-          codepage: 0,
-          widthtimes: 0,
-          heigthtimes: 0,
-        },
-      );
-
-      await BluetoothEscposPrinter.printText(
-        `Pulpa: ${EstadoCafe.Pulpa ? EstadoCafe.Pulpa : 0}\n\r`,
-        {
-          encoding: 'GBK',
-          codepage: 0,
-          widthtimes: 0,
-          heigthtimes: 0,
-        },
-      );
+    {
+      params.data === 'Pergamino'
+        ? await BluetoothEscposPrinter.printText(
+            `Total: (${SoloSuma.toFixed(2)}-6.5)=${SumaDes.toFixed(2)}%\n\r`,
+            {
+              encoding: 'GBK',
+              codepage: 0,
+              widthtimes: 0,
+              heigthtimes: 0,
+            },
+          )
+        : await BluetoothEscposPrinter.printText(
+            `Descuento: (${SoloSuma.toFixed(2)}-8.5)=${SumaDes.toFixed(
+              2,
+            )}%\n\r`,
+            {
+              encoding: 'GBK',
+              codepage: 0,
+              widthtimes: 0,
+              heigthtimes: 0,
+            },
+          );
     }
 
     await BluetoothEscposPrinter.printText(
@@ -1674,6 +1872,23 @@ function FinalGuardar({
       heigthtimes: 0,
     });
 
+    await BluetoothEscposPrinter.printText(`Tara: ${SumaSacos}\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      `Peso Neto: ${Neto.total.toFixed(2)}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
     await BluetoothEscposPrinter.printText(
       `\n\rHora: ${moment().format('LT')}\n\r`,
       {
@@ -1684,7 +1899,341 @@ function FinalGuardar({
       },
     );
     await BluetoothEscposPrinter.printText(
-      `Fecha de Impresion: ${moment().format('L')}\n\r`,
+      `Fecha de Impresion: ${moment().format('DD/MM/YYYY')}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      '\n\r\n\r\n\r--------------------------------\n\r',
+      {},
+    );
+
+    await BluetoothEscposPrinter.printerAlign(
+      BluetoothEscposPrinter.ALIGN.CENTER,
+    );
+    await BluetoothEscposPrinter.printText(`Firma del Cliente\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      '\n\r--------------------------------\n\r',
+      {},
+    );
+    await BluetoothEscposPrinter.printerAlign(
+      BluetoothEscposPrinter.ALIGN.LEFT,
+    );
+    await BluetoothEscposPrinter.printText(
+      `La Nota de Peso Tendra una vigencia de 2 Meses en Deposito:\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      '\n\r--------------------------------\n\r',
+      {},
+    );
+
+    await BluetoothEscposPrinter.printText(
+      '\n\r\n\r\n\r-----Comprobante Cliente-----\n\r',
+      {},
+    );
+    await BluetoothEscposPrinter.printText(
+      '\n\r-------Fin de Linea-------\n\r',
+      {},
+    );
+  };
+
+  const printText2 = async () => {
+    await BluetoothEscposPrinter.printerAlign(
+      BluetoothEscposPrinter.ALIGN.CENTER,
+    );
+
+    await BluetoothEscposPrinter.setBlob(0);
+    await BluetoothEscposPrinter.printText(
+      '--------------------------------\n\r',
+      {},
+    );
+    await BluetoothEscposPrinter.printText('COHORSIL\n\r', {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 1,
+      heigthtimes: 1,
+      fonttype: 1,
+    });
+
+    await BluetoothEscposPrinter.setBlob(1);
+    await BluetoothEscposPrinter.printText('Siguatepeque, Honduras\n\r', {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText('Tel: 2773-0872 y 2773-2794\n\r', {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText('Nota de peso: F-RP-SC-72\n\r', {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      '--------------------------------\n\r',
+      {},
+    );
+
+    await BluetoothEscposPrinter.printerAlign(
+      BluetoothEscposPrinter.ALIGN.LEFT,
+    );
+    await BluetoothEscposPrinter.setBlob(1);
+    await BluetoothEscposPrinter.printText(
+      `Nota de peso NO: ${Number(Correlati) + 1}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `Fecha: ${moment().format('DD/MM/YYYY')}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `ID Productor: ${Cliente.Identidad}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `Nombre Productor: ${Cliente.Nombre}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `Beneficio: ${Beneficio.Nombre}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(`Marca: ${NMarca}\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      `Altura: ${Altura.value}    Estado: ${params.data}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `Humedad: ${EstadoCafe.Humedad ? EstadoCafe.Humedad : 0} \n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(`Peso en: Libras\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      '------------Descuentos----------\n\r',
+      {},
+    );
+
+    {
+      params.data === 'Pergamino'
+        ? await BluetoothEscposPrinter.printText(
+            `Total: (${SoloSuma.toFixed(2)}-6.5)=${SumaDes.toFixed(2)}%\n\r`,
+            {
+              encoding: 'GBK',
+              codepage: 0,
+              widthtimes: 0,
+              heigthtimes: 0,
+            },
+          )
+        : await BluetoothEscposPrinter.printText(
+            `Descuento: (${SoloSuma.toFixed(2)}-8.5)=${SumaDes.toFixed(
+              2,
+            )}%\n\r`,
+            {
+              encoding: 'GBK',
+              codepage: 0,
+              widthtimes: 0,
+              heigthtimes: 0,
+            },
+          );
+    }
+
+    await BluetoothEscposPrinter.printText(
+      '--------------------------------\n\r',
+      {},
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `Precio Fijado: ${PrecioFijado.value}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `Muestras Tomadas: ${Muestras}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(`Observacion: ${Observacion}\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      '--------------------------------\n\r',
+      {},
+    );
+
+    await BluetoothEscposPrinter.printText('     #Sacos:    |    Libras\n\r', {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      '--------------------------------\n\r',
+      {},
+    );
+
+    {
+      Pesos.map(
+        async item =>
+          await BluetoothEscposPrinter.printText(
+            `\t${item.Sacos.padEnd(5, ' ')}   |    ${item.Libras.padEnd(
+              5,
+              ' ',
+            )}\n\r`,
+            {
+              encoding: 'GBK',
+              codepage: 0,
+              widthtimes: 0,
+              heigthtimes: 0,
+            },
+          ),
+      );
+    }
+
+    await BluetoothEscposPrinter.printText(
+      '--------------------------------\n\r',
+      {},
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `Total de Libras: ${SumaLibras}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(`Total de Sacos: ${SumaSacos}\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(`Tara: ${SumaSacos}\n\r`, {
+      encoding: 'GBK',
+      codepage: 0,
+      widthtimes: 0,
+      heigthtimes: 0,
+    });
+
+    await BluetoothEscposPrinter.printText(
+      `Peso Neto: ${Neto.total.toFixed(2)}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+
+    await BluetoothEscposPrinter.printText(
+      `\n\rHora: ${moment().format('LT')}\n\r`,
+      {
+        encoding: 'GBK',
+        codepage: 0,
+        widthtimes: 0,
+        heigthtimes: 0,
+      },
+    );
+    await BluetoothEscposPrinter.printText(
+      `Fecha de Impresion: ${moment().format('DD/MM/YYYY')}\n\r`,
       {
         encoding: 'GBK',
         codepage: 0,
@@ -1740,63 +2289,227 @@ function FinalGuardar({
     );
   };
 
-  const Guardar = async () => {
-    setDialo(false);
-    setRefreshConsulta(true);
-    setLoading(true);
-    try {
-      const db = await getDBConnection();
-      await insertTablaNotas(db, Array);
-      printText();
-      setRefreshConsulta(false);
-      setLoading(false);
-      navigation.navigate('Pantalla1');
-      console.log('se agregaron los datos en la tabla Notas');
-      db.close;
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
   return (
     <>
       <LoadingLogin isVisible={Loading} text="Agregando Notas" />
-      <Text style={{textAlign: 'center'}}>Verificar Datos</Text>
+      {/* <Text style={{textAlign: 'center'}}>Verificar Datos</Text> */}
       <ModalImpresora Impresora={Impresora} setImpresora={setImpresora} />
 
       <View>
-        <IconButton
-          icon="printer"
-          size={25}
-          onPress={() => setImpresora(true)}
-        />
         <Text
           style={{
             textAlign: 'center',
             fontWeight: 'bold',
             color: 'black',
-            fontSize: 20,
+            fontSize: 25,
+            margin: 10,
           }}>
-          Cliente
+          Verificar Datos
         </Text>
-        <Text>Cliente: {Cliente.Nombre}</Text>
-        <Text>Identidad: {Cliente.Identidad}</Text>
-        <Text>Marca: {Marca}</Text>
-        <Text>Beneficio: {Marca}</Text>
-        <Text>Estado: {params.data}</Text>
+
+        <View
+          style={{
+            marginRight: '5%',
+            marginLeft: '5%',
+            borderWidth: 1,
+            borderStyle: 'solid',
+            borderRadius: 15,
+            padding: 5,
+          }}>
+          <Text style={{fontWeight: 'bold', color: 'black'}}>
+            Cliente: {Cliente.Nombre}
+          </Text>
+          <Text style={{fontWeight: 'bold', color: 'black'}}>
+            Identidad: {Cliente.Identidad}
+          </Text>
+          <Text style={{fontWeight: 'bold', color: 'black'}}>
+            Marca: {NMarca}
+          </Text>
+
+          {size(Npropie) > 0 ? (
+            <Text style={{fontWeight: 'bold', color: 'black'}}>
+              Propietario: {Npropie}
+            </Text>
+          ) : Number(Propie) === 1 ? (
+            <Text style={{fontWeight: 'bold', color: 'black'}}>
+              Propietario: COHORSIL
+            </Text>
+          ) : null}
+        </View>
 
         <Text
           style={{
-            textAlign: 'center',
+            textAlign: 'left',
             fontWeight: 'bold',
             color: 'black',
             fontSize: 20,
+            marginLeft: 15,
           }}>
           Pesos
         </Text>
-        <Text>Total Libras: {SumaLibras}</Text>
-        <Text>Total Sacos: {SumaSacos}</Text>
-        <Text>Muestras: {Muestras}</Text>
+
+        <DataTable>
+          <DataTable.Header>
+            <DataTable.Title numeric></DataTable.Title>
+            <DataTable.Title numeric>Peso</DataTable.Title>
+            <DataTable.Title numeric>Sacos</DataTable.Title>
+          </DataTable.Header>
+
+          {Pesos.map((item, index) => (
+            <DataTable.Row>
+              <DataTable.Cell>Libras</DataTable.Cell>
+              <DataTable.Cell numeric>{item.Libras}</DataTable.Cell>
+              <DataTable.Cell numeric>{item.Sacos}</DataTable.Cell>
+            </DataTable.Row>
+          ))}
+
+          <DataTable.Row>
+            <DataTable.Cell>
+              <Text style={{fontWeight: 'bold', textAlign: 'center'}}>
+                Total
+              </Text>
+            </DataTable.Cell>
+            <DataTable.Cell numeric>
+              <Text style={{fontWeight: 'bold', textAlign: 'center'}}>
+                {SumaLibras}
+              </Text>
+            </DataTable.Cell>
+            <DataTable.Cell numeric>
+              <Text style={{fontWeight: 'bold', textAlign: 'center'}}>
+                {SumaSacos}
+              </Text>
+            </DataTable.Cell>
+          </DataTable.Row>
+        </DataTable>
+
+        {/* <View style={{flexDirection: 'row', margin: 15}}>
+          <View style={{width: '32%'}}>
+            <Text
+              style={{textAlign: 'center', fontWeight: 'bold', fontSize: 20}}>
+              Total Sacos: {SumaSacos}
+            </Text>
+          </View>
+
+          <View style={{width: '32%'}}>
+            <Text
+              style={{textAlign: 'center', fontWeight: 'bold', fontSize: 20}}>
+              Total Libras: {SumaLibras}
+            </Text>
+          </View>
+
+          <View style={{width: '36%'}}>
+            <Text
+              style={{textAlign: 'center', fontWeight: 'bold', fontSize: 20}}>
+              Muestra(s): {Muestras}
+            </Text>
+          </View>
+        </View> */}
+
+        <Text
+          style={{
+            textAlign: 'left',
+            fontWeight: 'bold',
+            color: 'black',
+            fontSize: 20,
+            marginLeft: 15,
+          }}>
+          Descuentos
+        </Text>
+
+        {size(EstadoCafe) > 0 ? (
+          <View style={{marginLeft: 15}}>
+            {EstadoCafe.Humedad ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Humedad: {EstadoCafe.Humedad}%
+              </Text>
+            ) : null}
+
+            {EstadoCafe.Frutoverde ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Fruto verde: {EstadoCafe.Frutoverde}(Uds){'   '}
+                {Descuebto.Verde.toFixed(2)}%
+              </Text>
+            ) : null}
+
+            {EstadoCafe.FrutoBrocado ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Fruto Brocado: {EstadoCafe.FrutoBrocado}(Uds){'   '}
+                {Descuebto.Brocado.toFixed(2)}%
+              </Text>
+            ) : null}
+
+            {EstadoCafe.Frutoseco ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Fruto seco: {EstadoCafe.Frutoseco}(Uds){'   '}
+                {Descuebto.Seco.toFixed(2)}%
+              </Text>
+            ) : null}
+
+            {EstadoCafe.Mordido ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Mordido: {EstadoCafe.Mordido}(Uds){'   '}
+                {Descuebto.Mordido.toFixed(2)}%
+              </Text>
+            ) : null}
+            {EstadoCafe.Negro ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Negro: {EstadoCafe.Negro}(Uds)
+                {'   '}
+                {Descuebto.Negro.toFixed(2)}%
+              </Text>
+            ) : null}
+            {EstadoCafe.Pulpa ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Pulpa: {EstadoCafe.Pulpa}(Uds)
+                {'   '}
+                {Descuebto.Pulpa.toFixed(2)}%
+              </Text>
+            ) : null}
+            {EstadoCafe.Pelado ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Pelado: {EstadoCafe.Pelado}(Uds)
+                {'   '}
+                {Descuebto.Pelado.toFixed(2)}%
+              </Text>
+            ) : null}
+            {EstadoCafe.Inmaduro ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Inmaduro: {EstadoCafe.Inmaduro}(Uds)
+                {'   '}
+                {Descuebto.Inmaduro.toFixed(2)}%
+              </Text>
+            ) : null}
+            {EstadoCafe.Manchado ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Manchado: {EstadoCafe.Manchado}(Uds)
+                {'   '}
+                {Descuebto.Manchado.toFixed(2)}%
+              </Text>
+            ) : null}
+            {EstadoCafe.Cereza ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Cereza: {EstadoCafe.Cereza}(Uds)
+                {'   '}
+                {Descuebto.Cereza.toFixed(2)}%
+              </Text>
+            ) : null}
+            {EstadoCafe.Otros ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Otros: {EstadoCafe.Otros}(Uds)
+                {'   '}
+                {Descuebto.Otros.toFixed(2)}%
+              </Text>
+            ) : null}
+
+            {EstadoCafe.Materia ? (
+              <Text style={{fontWeight: 'bold', color: '#31618C'}}>
+                Materia Extraña: {EstadoCafe.Materia}(Uds)
+                {'   '}
+                {Descuebto.Materia.toFixed(2)}%
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
 
         <Text
           style={{
@@ -1804,34 +2517,71 @@ function FinalGuardar({
             fontWeight: 'bold',
             color: 'black',
             fontSize: 20,
+            marginLeft: 15,
           }}>
-          Descuentos
+          Tara : {SumaSacos}
         </Text>
-        <Text>Humedad: {EstadoCafe.Humedad ? EstadoCafe.Humedad : 0}</Text>
-        <Text>
-          Fruto verde: {EstadoCafe.Frutoverde ? EstadoCafe.Frutoverde : 0}
+        <Text
+          style={{
+            textAlign: 'center',
+            fontWeight: 'bold',
+            color: 'black',
+            fontSize: 20,
+            marginLeft: 15,
+          }}>
+          P. Bruto : {SumaLibras}
         </Text>
-        <Text>
-          Fruto Brocado: {EstadoCafe.FrutoBrocado ? EstadoCafe.FrutoBrocado : 0}
-        </Text>
-        <Text>
-          Fruto seco: {EstadoCafe.Frutoseco ? EstadoCafe.Frutoseco : 0}
-        </Text>
-        <Text>
-          Materia Extraña: {EstadoCafe.Materia ? EstadoCafe.Materia : 0}
+        <Text
+          style={{
+            textAlign: 'center',
+            fontWeight: 'bold',
+            color: 'black',
+            fontSize: 20,
+            marginLeft: 15,
+          }}>
+          Descuento {SumaDes.toFixed(2)}%
         </Text>
 
-        <Text>Observacion: {Observacion}</Text>
+        <Text
+          style={{
+            textAlign: 'center',
+            fontWeight: 'bold',
+            color: 'black',
+            fontSize: 20,
+            marginLeft: 15,
+            borderTopWidth: 1,
+            borderStyle: 'solid',
+          }}>
+          P. Neto : {Neto.total.toFixed(2)}
+        </Text>
 
-        <View style={{width: 350, marginLeft: 'auto', marginRight: 'auto'}}>
-          <Button
-            icon="content-save"
-            color="#3F8C4D"
-            mode="contained"
-            onPress={() => setDialo(true)}>
-            Guardar e Imprimir
-          </Button>
-        </View>
+        {size(Observacion) > 0 ? (
+          <View
+            style={{
+              marginRight: '5%',
+              marginLeft: '5%',
+              backgroundColor: '#96999C',
+              height: 70,
+              borderRadius: 10,
+              padding: 3,
+              marginBottom: 15,
+              marginTop: 15,
+            }}>
+            <Text style={{fontWeight: 'bold', color: 'white', fontSize: 17}}>
+              Observacion: {Observacion ? Observacion : '  Sin observacion'}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={{width: 350, marginLeft: 'auto', marginRight: 'auto'}}>
+        <Button
+          icon="content-save"
+          color="#3F8C4D"
+          mode="contained"
+          onPress={() => setDialo(true)}>
+          Guardar e Imprimir
+        </Button>
       </View>
 
       <Portal>
@@ -1858,6 +2608,44 @@ function FinalGuardar({
               Guardar
             </Button>
           </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      <IconButton
+        style={{position: 'absolute'}}
+        icon="printer"
+        size={35}
+        onPress={() => setImpresora(true)}
+      />
+
+      <Portal>
+        <Dialog visible={VisibleBene}>
+          <Dialog.Content>
+            <Paragraph style={{fontWeight: 'bold', fontSize: 18}}>
+              Imprimir Comprobante de Beneficio?
+            </Paragraph>
+
+            <Button
+              icon="printer"
+              mode="contained"
+              color="#42954B"
+              onPress={() => {
+                printText2();
+                navigation.navigate('Pantalla1');
+              }}>
+              imprimir
+            </Button>
+
+            <View style={{marginTop: 15}}>
+              <Button
+                icon="exit-to-app"
+                mode="contained"
+                color="red"
+                onPress={() => navigation.navigate('Pantalla1')}>
+                Nueva Nota
+              </Button>
+            </View>
+          </Dialog.Content>
         </Dialog>
       </Portal>
     </>

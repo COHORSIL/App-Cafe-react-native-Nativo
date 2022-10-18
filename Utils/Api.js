@@ -1,17 +1,17 @@
 export function apikey() {
-  let key = "hsdujnn28328hhfj";
+  let key = 'hsdujnn28328hhfj';
 
   return key;
 }
 
 export function apikey2() {
-  let key = "ojkasdyunnhjhjdhjf";
+  let key = 'ojkasdyunnhjhjdhjf';
 
   return key;
 }
 
 export function ruta() {
-  let ruta = "https://201.190.6.19/rest";
+  let ruta = 'https://201.190.6.19/rest';
 
   return ruta;
 }
@@ -56,20 +56,38 @@ export function Variedad() {
   return url;
 }
 
-
 export function Beneficio() {
   let url = `${ruta()}/recibo/beneficio.php?apikey=${apikey2()}`;
   return url;
 }
-
 
 export function ClienteCafe() {
   let url = `${ruta()}/recibo/clientes.php?apikey=${apikey2()}`;
   return url;
 }
 
-
 export function MarcasCafe() {
   let url = `${ruta()}/recibo/marca.php?apikey=${apikey2()}`;
+  return url;
+}
+
+export function Propietarios() {
+  let url = `${ruta()}/recibo/Propietario.php?apikey=${apikey2()}`;
+  return url;
+}
+
+export function ClienteNotas() {
+  let url = `${ruta()}/recibo/clientes.php?apikey=${apikey2()}`;
+  return url;
+}
+
+export function Notas() {
+  let url = `${ruta()}/recibo/nota.php?apikey=${apikey2()}`;
+  return url;
+}
+
+
+export function Correlativo() {
+  let url = `${ruta()}/recibo/CorrelativosNotas.php?apikey=${apikey2()}`;
   return url;
 }

@@ -8,19 +8,20 @@ import {
   deleteTableMarcas,
   getDBConnection,
   getTablaMarcas,
+  getTablaPropietario,
   getTask,
   initDatabase,
   insertTablaMarcas,
+  insertTablaPropietario,
   insertTask,
 } from '../Utils/db';
 import Usuario from '../Hooks/Usuario';
-import {ClienteCafe, MarcasCafe} from '../Utils/Api';
+import {ClienteCafe, MarcasCafe, Propietarios} from '../Utils/Api';
 import {size} from 'lodash';
 
 export default function PreCargar({navigation, route}) {
   const {setuserInfo} = route.params;
   const {refreshAPP, Loading, setLoading} = useContext(refreshGlobal);
-  console.log('Loading', Loading);
   const {token} = Usuario();
 
   useEffect(function () {
@@ -61,13 +62,6 @@ export default function PreCargar({navigation, route}) {
               result.Clientes.map((item, index) => {
                 Agregar(item, index, result);
               });
-
-              // setLoading(false);
-              // }
-              // if (result.status === 2) {
-              //   ToastAndroid.show('Agrege un Comentario!', 3000);
-              //   return;
-              // }
             })
             .catch(error => {
               console.log('error fetch get Cliente', error);
@@ -104,48 +98,48 @@ export default function PreCargar({navigation, route}) {
 
   const ObtenerDatosMarcas = async () => {
     const MarcasApi = [];
-    try {
-      const db = await getDBConnection();
-      const taskdatabase = await getTablaMarcas(db);
-      if (size(taskdatabase) > 0) {
-        console.log('La tabla Marcas tiene datos');
-      } else {
-        if (size(token) > 0) {
-          let url = MarcasCafe();
-          let options1 = {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: token,
-            },
-          };
+    // try {
+    //   const db = await getDBConnection();
+    //   const taskdatabase = await getTablaMarcas(db);
+    //   if (size(taskdatabase) > 0) {
+    //     console.log('La tabla Marcas tiene datos');
+    //   } else {
+    if (size(token) > 0) {
+      let url = MarcasCafe();
+      let options1 = {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token,
+        },
+      };
 
-          fetch(`${url}`, options1)
-            .then(res => res.json())
-            .then(result => {
-              EliminarMarcas();
-              async function init() {
-                await initDatabase();
-              }
-              init();
-              result.Marcas.forEach(function (item, index) {
-                MarcasApi.push({
-                  label: item.Nombre,
-                  value: item.id,
-                });
-              });
-              MarcasApi.map(item => {
-                AgregarMarcas(item);
-              });
-            })
-            .catch(error => {
-              console.log('error fetch get Marcas', error);
+      fetch(`${url}&tipo=nota`, options1)
+        .then(res => res.json())
+        .then(result => {
+          EliminarMarcas();
+          async function init() {
+            await initDatabase();
+          }
+          init();
+          result.Marcas.forEach(function (item, index) {
+            MarcasApi.push({
+              label: item.Nombre,
+              value: item.id,
             });
-        }
-      }
-    } catch (error) {
-      console.log(error);
+          });
+          MarcasApi.map(item => {
+            AgregarMarcas(item);
+          });
+        })
+        .catch(error => {
+          console.log('error fetch get Marcas', error);
+        });
     }
+
+    // } catch (error) {
+    //   console.log(error);
+    // }
   };
 
   const AgregarMarcas = async item => {
@@ -165,10 +159,75 @@ export default function PreCargar({navigation, route}) {
     await db.executeSql(query);
   };
 
+  const EliminarPropietario = async () => {
+    const db = await getDBConnection();
+    const query = `DROP TABLE IF EXISTS Propietario`;
+    await db.executeSql(query);
+  };
+
+  const ObtenerDatosPropietarios = async () => {
+    const MarcasApi = [];
+    // try {
+    //   const db = await getDBConnection();
+    //   const taskdatabase = await getTablaPropietario(db);
+    //   if (size(taskdatabase) > 0) {
+    //     console.log('La tabla Propietario tiene datos');
+    //   } else {
+    if (size(token) > 0) {
+      let url = Propietarios();
+      let options1 = {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token,
+        },
+      };
+
+      fetch(`${url}`, options1)
+        .then(res => res.json())
+        .then(result => {
+          // EliminarMarcas();
+          EliminarPropietario();
+          async function init() {
+            await initDatabase();
+          }
+          init();
+          result.Propietarios.forEach(function (item, index) {
+            MarcasApi.push({
+              label: item.Nombre,
+              value: item.Id,
+            });
+          });
+          MarcasApi.map(item => {
+            AgregarPropietario(item);
+          });
+        })
+        .catch(error => {
+          console.log('error fetch get Propietario', error);
+        });
+    }
+    // }
+    // } catch (error) {
+    //   console.log(error);
+    // }
+  };
+
+  const AgregarPropietario = async item => {
+    try {
+      const db = await getDBConnection();
+      await insertTablaPropietario(db, item);
+      console.log('se agregaron los datos en la tabla Propietario');
+      db.close;
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   //API CLIENTES
   useEffect(() => {
     ObtenerDatosClientes();
     ObtenerDatosMarcas();
+    ObtenerDatosPropietarios();
   }, [token]);
 
   const tokenlogin = async () => {

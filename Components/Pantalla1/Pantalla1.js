@@ -6,7 +6,7 @@ import {
   View,
   ToastAndroid,
 } from 'react-native';
-import React, {useEffect, useState, useContext} from 'react';
+import React, {useEffect, useState, useContext, useRef} from 'react';
 import {refreshGlobal} from '../../Context/Context';
 import {
   Button,
@@ -21,11 +21,15 @@ import {
 import LoadingLogin from '../Loading/LoadingLogin';
 import {getDBConnection} from '../../Utils/db';
 import LottieWalk from '../Lottie/LottieWalk';
+import {Beneficio, Correlativo} from '../../Utils/Api';
 import {size} from 'lodash';
+import jwt_decode from 'jwt-decode';
 import {BluetoothManager} from 'tp-react-native-bluetooth-printer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LottieLoadinNotas from '../Lottie/LottieLoadinNotas';
 import DatePicker, {getFormatedDate} from 'react-native-modern-datepicker';
+import Usuario from '../../Hooks/Usuario';
+import Sincronizar from './Sincronizar';
 import {Icon} from 'react-native-elements';
 import moment from 'moment/moment';
 moment.locale('es');
@@ -36,6 +40,7 @@ export default function Pantalla1({navigation}) {
   const [Clien, setClien] = useState([]);
   const [Notas, setNotas] = useState([]);
   const [Notalenth, setNotalenth] = useState([]);
+  const {token} = Usuario();
   const [PedienteTotal, setPedienteTotal] = useState(0);
   const [GetNotasData, setGetNotasData] = useState([]);
   const [Load, setLoad] = useState('Cargando');
@@ -43,17 +48,9 @@ export default function Pantalla1({navigation}) {
   const [Fechasearh, setFechasearh] = useState(moment().format('DD/MM/YYYY'));
   const [isVisible, setisVisible] = useState(false);
   const {open} = state;
-  const {Loading, RefreshConsulta, setRefreshConsulta} =
+  const {Loading, RefreshConsulta, setRefreshConsulta, setSincronizar, Sincron} =
     useContext(refreshGlobal);
-
-
-
-  const Eliminar = async () => {
-    const db = await getDBConnection();
-    const query = `DROP TABLE IF EXISTS Clientes`;
-    await db.executeSql(query);
-    console.log('Tabla eliminada cliente');
-  };
+  const [Sincro, setSincro] = useState(false);
 
   const Eliminar3 = async () => {
     const db = await getDBConnection();
@@ -93,12 +90,13 @@ export default function Pantalla1({navigation}) {
       throw Error('Error al obtener los datos !!!');
     }
   };
+
   const PendientesNotasLenth = async () => {
     const db = await getDBConnection();
     try {
       const task = [];
       const results = await db.executeSql(
-        `SELECT * FROM Notas WHERE Estado LIKE '%1%'`,
+        `SELECT * FROM Notas WHERE Estado !=0`,
       );
       results.forEach(result => {
         for (let index = 0; index < result.rows.length; index++) {
@@ -114,11 +112,12 @@ export default function Pantalla1({navigation}) {
 
   const PendientesNotas = async () => {
     let fecha = moment().format('DD/MM/YYYY');
+
     const db = await getDBConnection();
     try {
       const task = [];
       const results = await db.executeSql(
-        `SELECT * FROM Notas WHERE FechaCreacion LIKE '%${fecha}%'`,
+        `SELECT * FROM  Notas WHERE FechaCreacion LIKE '%${fecha}%'`,
       );
 
       setLoad('Cargando Espere...');
@@ -130,8 +129,7 @@ export default function Pantalla1({navigation}) {
       });
 
       setNotas(task);
-      console.log(task);
-  
+      // console.log(task);
 
       let Array = [];
       if (size(task) > 0) {
@@ -139,8 +137,8 @@ export default function Pantalla1({navigation}) {
           Array.push({
             cliente: JSON.parse(item.Cliente),
             Beneficio: item.Beneficio,
-            Marca: item.Marca,
-            Pesos: item.Pesos,
+            Marca: item.NMarca,
+            Pesos: JSON.parse(item.Pesos),
             Tipo: item.Tipo,
             SumaLibras: item.SumaLibras,
             Muestras: item.Muestras,
@@ -151,11 +149,12 @@ export default function Pantalla1({navigation}) {
             Fecha: item.FechaCreacion,
             Estado: item.Estado,
             Observacion: item.Observacion,
+            Id: item.id,
+            Correlativo: item.Correlativo,
           });
         });
 
         setGetNotasData(Array);
-        // console.log(Array);
       }
       setLoad('No hay Notas');
     } catch (error) {
@@ -163,15 +162,6 @@ export default function Pantalla1({navigation}) {
       setLoad('No hay Notas');
       throw Error('Error al obtener los datos !!!');
     }
-  };
-
-  const Eliminar2 = async () => {
-    setRefreshConsulta(true);
-    const db = await getDBConnection();
-    const query = `DROP TABLE IF EXISTS Marcas`;
-    await db.executeSql(query);
-    console.log('Tabla eliminada marcas');
-    setRefreshConsulta(false);
   };
 
   const ImpresoraLocal = async () => {
@@ -200,7 +190,10 @@ export default function Pantalla1({navigation}) {
   const hideDialog = () => setVisible(false);
 
   const Fecht = async item => {
+
     let fecha = moment(item).format('DD/MM/YYYY');
+
+    console.log(fecha);
 
     const db = await getDBConnection();
     try {
@@ -237,6 +230,8 @@ export default function Pantalla1({navigation}) {
             Fecha: item.FechaCreacion,
             Estado: item.Estado,
             Observacion: item.Observacion,
+            Id: item.id,
+            Correlativo: item.Correlativo,
           });
         });
 
@@ -255,8 +250,79 @@ export default function Pantalla1({navigation}) {
     }
   };
 
+  useEffect(() => {
+    if (token) {
+      Beneficios(jwt_decode(token));
+      Correlativos(jwt_decode(token));
+    }
+  }, [token]);
+
+  const Beneficios = item => {
+    if (size(item) > 0) {
+      let Id = item.data.beneficios[0].Beneficio;
+
+      let url = Beneficio();
+      let options1 = {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token,
+        },
+      };
+
+      fetch(`${url}&id=${Id}`, options1)
+        .then(res => res.json())
+        .then(result => {
+          AsyncStorage.setItem(
+            'Beneficio',
+            JSON.stringify(result.Beneficio[0]),
+          );
+        })
+        .catch(error => {
+          console.log('error fetch get Marcas', error);
+        });
+    }
+  };
+
+  const Correlativos = async item => {
+    const value = await AsyncStorage.getItem('Correlativo');
+
+    if (value !== null) {
+      console.log('ya hay Correlativo');
+    } else {
+      if (size(item) > 0) {
+        let Id = item.data.beneficios[0].Beneficio;
+        let url = Correlativo();
+        let options1 = {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: token,
+          },
+        };
+
+        fetch(`${url}&beneficio=${Id}`, options1)
+          .then(res => res.json())
+          .then(result => {
+            AsyncStorage.setItem('Correlativo', result.Correlativo[0].Maximo);
+            console.log('Se agrego el Correlativo');
+          })
+          .catch(error => {
+            console.log('error fetch get Marcas', error);
+          });
+      }
+    }
+  };
+
+  const sincronizarref = useRef(null);
+
+  const Press = () => {
+    setSincro(true);
+  };
+
   return (
     <>
+      <Sincronizar Sincro={Sincro} setSincro={setSincro} Fechasearh={Fechasearh}/>
       <LoadingLogin isVisible={isVisible} text="Buscando Notas" />
       <Portal>
         <Dialog visible={visible} onDismiss={hideDialog}>
@@ -311,8 +377,60 @@ export default function Pantalla1({navigation}) {
                     Nota: item,
                   })
                 }>
-                <Card style={{height: 120}} key={index}>
-                  <Card.Content>
+                <Card key={index}>
+                  <Card.Content
+                    style={
+                      Number(item.Estado) === 2
+                        ? {
+                            borderColor: 'red',
+                            borderStyle: 'solid',
+                            borderWidth: 1,
+                          }
+                        : null
+                    }>
+                    {Number(item.Estado) === 2 ? (
+                      <Text
+                        style={{
+                          position: 'absolute',
+                          fontWeight: 'bold',
+                          color: 'red',
+                        }}>
+                        Anulada
+                      </Text>
+                    ) : null}
+
+                    {Number(item.Estado) === 1 ? (
+                      <Text
+                        style={{
+                          position: 'absolute',
+                          fontWeight: 'bold',
+                          color: '#40883B',
+                        }}>
+                        Pendiente
+                      </Text>
+                    ) : null}
+
+                    {Number(item.Estado) === 0 ? (
+                      <Text
+                        style={{
+                          position: 'absolute',
+                          fontWeight: 'bold',
+                          color: '#4E94BD',
+                        }}>
+                        Sicronizada
+                      </Text>
+                    ) : null}
+
+                    <Text
+                      style={{
+                        position: 'absolute',
+                        fontWeight: 'bold',
+                        color: '#4E94BD',
+                        left: '45%',
+                      }}>
+                      #{item.Correlativo}
+                    </Text>
+
                     <View style={{flexDirection: 'row'}}>
                       <Icon
                         type="material-community"
@@ -354,13 +472,13 @@ export default function Pantalla1({navigation}) {
                         marginLeft: 'auto',
                         marginRight: 'auto',
 
-                        marginTop: -10,
+                        marginBottom: -25,
                         backgroundColor: 'white',
                         width: 200,
                         borderRadius: 10,
                         borderWidth: 1,
-                        borderStyle: "solid",
-                        borderColor: "#ABABAB"
+                        borderStyle: 'solid',
+                        borderColor: '#ABABAB',
                       }}>
                       <Text
                         style={{
@@ -443,13 +561,6 @@ export default function Pantalla1({navigation}) {
         )}
       </ScrollView>
 
-      <Button
-        onPress={() => {
-          Eliminar2();
-          Eliminar3();
-        }}>
-        Eliminar Todas las Tabla
-      </Button>
       <Provider>
         <Portal>
           <FAB.Group
@@ -459,6 +570,11 @@ export default function Pantalla1({navigation}) {
               {
                 icon: 'arrow-right-circle-outline',
                 onPress: () => console.log('Pressed add'),
+              },
+              {
+                icon: 'cloud-upload-outline',
+                label: 'Sincronizar',
+                onPress: () => setSincronizar(true),
               },
               {
                 icon: 'account-plus',
@@ -485,6 +601,8 @@ export default function Pantalla1({navigation}) {
           />
         </Portal>
       </Provider>
+
+      {/* <Button onPress={() => {Eliminar3();  AsyncStorage.removeItem('Correlativo')}}>Eliminat Notas</Button> */}
     </>
   );
 }

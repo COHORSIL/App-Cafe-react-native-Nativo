@@ -9,11 +9,14 @@ import {
 } from 'react-native';
 import {Icon} from 'react-native-elements';
 import * as Animatable from 'react-native-animatable';
-import {TextInput} from 'react-native-paper';
+import {Button, TextInput} from 'react-native-paper';
 import {RadioButton} from 'react-native-paper';
 import {getDBConnection} from '../../../Utils/db';
 import {refreshGlobal} from '../../../Context/Context';
 import LoadingLogin from '../../Loading/LoadingLogin';
+import TextInputMask from 'react-native-text-input-mask';
+import moment from 'moment';
+import {size} from 'lodash';
 
 export default function AddCliente({navigation}) {
   const [Nombre, setNombre] = useState([]);
@@ -24,58 +27,107 @@ export default function AddCliente({navigation}) {
   const [checked, setChecked] = useState('Masculino');
   const [isVisible, setIsVisible] = useState(false);
   const {setRefreshConsulta} = useContext(refreshGlobal);
+  const [Disable, setDisable] = useState(false);
+  const [verificarId, setverificarId] = useState('Incompleto');
+  const [Formate, setFormate] = useState('');
+
+  console.log(Disable);
 
   const submiPost = async () => {
+    let fecha = moment().format('DD/MM/YYYY');
+   
     if (Nombre == '') {
       ToastAndroid.show('Ingrese Nombre!', 3000);
+      setDisable(false);
       return;
     }
 
     if (Identidad == '') {
       ToastAndroid.show('Ingrese Identidad!', 3000);
+      setDisable(false);
+      return;
+    }
+
+    if (verificarId === 'Incompleto') {
+      ToastAndroid.show('Ingrese la Identidad Completa!', 3000);
+      setDisable(false);
       return;
     }
 
     if (Telefono == '') {
       ToastAndroid.show('Ingrese Telefono!', 3000);
+      setDisable(false);
       return;
     }
 
     if (Direccion == '') {
       ToastAndroid.show('Ingrese Direccion!', 3000);
+      setDisable(false);
       return;
     }
 
     if (Ubicacion_Finca == '') {
       ToastAndroid.show('Ingrese Ubicacion de la Finca!', 3000);
+      setDisable(false);
       return;
     }
+    setDisable(true);
 
-    setRefreshConsulta(true);
-    setIsVisible(true);
+    const task2 = [];
+    const db = await getDBConnection();
+    const results = await db.executeSql(
+      `SELECT * FROM Clientes WHERE Identidad LIKE '${Identidad}'`,
+    );
+    results.forEach(result => {
+      for (let index = 0; index < result.rows.length; index++) {
+        task2.push(result.rows.item(index));
+      }
+    });
 
-    try {
-      const db = await getDBConnection();
-      const insertQuery =
-        'INSERT INTO Clientes (Codigo, Nombre, Identidad, direccion, telefono, ubicacionFinca, genero, estado)  values (?,?,?,?,?,?,?,?)';
-      await db.executeSql(insertQuery, [
-        Identidad,
-        Nombre,
-        Identidad,
-        Direccion,
-        Telefono,
-        Ubicacion_Finca,
-        checked,
-        1,
-      ]);
-      ToastAndroid.show('se agrego el Cliente Correctamente', 3000);
-      navigation.navigate('Pantalla1');
-      setRefreshConsulta(false);
-      setIsVisible(false);
-      db.close;
-    } catch (error) {
-      ToastAndroid.show(error, 3000);
-      console.log(error);
+    if (size(task2) > 0) {
+      ToastAndroid.show('El cliente Ya existe', 3000);
+      setDisable(false);
+    } else {
+      setRefreshConsulta(true);
+      setIsVisible(true);
+      try {
+        const db = await getDBConnection();
+        const insertQuery =
+          'INSERT INTO Clientes (Codigo, Nombre, Identidad, direccion, telefono, ubicacionFinca, genero, estado, FechaCreacion)  values (?,?,?,?,?,?,?,?,?)';
+        await db.executeSql(insertQuery, [
+          Identidad,
+          Nombre,
+          Identidad,
+          Direccion,
+          Telefono,
+          Ubicacion_Finca,
+          checked,
+          1,
+          fecha,
+        ]);
+        ToastAndroid.show('se agrego el Cliente Correctamente', 3000);
+        navigation.navigate('Pantalla1');
+        setRefreshConsulta(false);
+        setIsVisible(false);
+        setDisable(false);
+        db.close;
+      } catch (error) {
+        ToastAndroid.show(error, 3000);
+        console.log(error);
+        setDisable(false);
+      }
+    }
+  };
+
+  const Verificar = (item, item2) => {
+    if (item.length < 13) {
+      setverificarId('Incompleto');
+      setIdentidad(item);
+      setFormate(item2);
+    } else {
+      setIdentidad(item);
+      setFormate(item2);
+      setverificarId('Completo');
     }
   };
 
@@ -105,8 +157,17 @@ export default function AddCliente({navigation}) {
         <TextInput
           style={styles.inputCa}
           label="Identidad "
-          value={Identidad}
+          value={Formate}
           keyboardType="numeric"
+          render={props => (
+            <TextInputMask
+              {...props}
+              mask="[0000]-[0000]-[00000]"
+              onChangeText={(formatted, extracted) =>
+                Verificar(extracted, formatted)
+              }
+            />
+          )}
           right={
             <TextInput.Icon
               style={styles.icon}
@@ -116,9 +177,6 @@ export default function AddCliente({navigation}) {
               color="black"
             />
           }
-          onChangeText={valor => {
-            setIdentidad(valor);
-          }}
         />
 
         <TextInput
@@ -217,6 +275,7 @@ export default function AddCliente({navigation}) {
 
         <View style={styles.button}>
           <TouchableOpacity
+            disabled={Disable}
             colors={['#6FA3B9', '#6FA3B9']}
             style={styles.signIn}
             onPress={submiPost}>
@@ -239,6 +298,7 @@ export default function AddCliente({navigation}) {
           </TouchableOpacity>
         </View>
       </Animatable.View>
+      {/* <Button onPress={() => submiPost()}>Buscar</Button> */}
     </>
   );
 }

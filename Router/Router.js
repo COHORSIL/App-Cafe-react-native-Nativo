@@ -1,13 +1,12 @@
-import { StyleSheet, Text, View } from 'react-native'
-import React, {useState, useEffect, useContext} from 'react'
-import { createMaterialBottomTabNavigator } from "@react-navigation/material-bottom-tabs";
+import {StyleSheet, Text, View} from 'react-native';
+import React, {useState, useEffect, useContext} from 'react';
+import {createMaterialBottomTabNavigator} from '@react-navigation/material-bottom-tabs';
 import Stack1 from './Stack1';
 import Stack2 from './Stack2';
 import StackUser from './StackUser';
-import Feather from "react-native-vector-icons/Feather";
+import Feather from 'react-native-vector-icons/Feather';
 import {getDBConnection} from '../Utils/db';
-import { refreshGlobal } from '../Context/Context';
-
+import {refreshGlobal} from '../Context/Context';
 
 const Tab = createMaterialBottomTabNavigator();
 
@@ -17,10 +16,9 @@ export default function Router() {
   const [PedienteTotal, setPedienteTotal] = useState(0);
   const [Notalenth, setNotalenth] = useState([]);
 
-
   useEffect(() => {
     PendientesClientes();
-    PendientesNotasLenth()
+    PendientesNotasLenth();
   }, [RefreshConsulta]);
 
   useEffect(() => {
@@ -54,7 +52,7 @@ export default function Router() {
     try {
       const task = [];
       const results = await db.executeSql(
-        `SELECT * FROM Notas WHERE Estado LIKE '%1%'`,
+        `SELECT * FROM Notas WHERE Estado !=0`,
       );
       results.forEach(result => {
         for (let index = 0; index < result.rows.length; index++) {
@@ -73,43 +71,40 @@ export default function Router() {
       shifting={true}
       initialRouteName="Stack1"
       activeColor="#181818"
-      labelStyle={{ fontSize: 12 }}
-      style={{ backgroundColor: "#009387" }}
-    >
+      labelStyle={{fontSize: 12}}
+      style={{backgroundColor: '#009387'}}>
       <Tab.Screen
         name="Stack1"
         component={Stack1}
         options={{
-          tabBarLabel: "Home",
-          tabBarColor: "#FFFFFF",
+          tabBarLabel: 'Home',
+          tabBarColor: '#FFFFFF',
           tabBarBadge: PedienteTotal == 0 ? null : PedienteTotal,
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({color}) => (
             <Feather name="home" color="#3BA6CF" size={20} />
           ),
         }}
       />
-  
 
       <Tab.Screen
         name="Stack2"
         component={Stack2}
         options={{
-          tabBarLabel: "Estadisticas",
-          tabBarColor: "#FFFFFF",
-          tabBarIcon: ({ color }) => (
+          tabBarLabel: 'Estadisticas',
+          tabBarColor: '#FFFFFF',
+          tabBarIcon: ({color}) => (
             <Feather name="bar-chart-2" color="#3BA6CF" size={20} />
           ),
         }}
       />
 
-
-<Tab.Screen
+      <Tab.Screen
         name="StackUser"
         component={StackUser}
         options={{
-          tabBarLabel: "Cuenta",
-          tabBarColor: "#FFFFFF",
-          tabBarIcon: ({ color }) => (
+          tabBarLabel: 'Cuenta',
+          tabBarColor: '#FFFFFF',
+          tabBarIcon: ({color}) => (
             <Feather name="log-out" color="#3BA6CF" size={20} />
           ),
         }}
@@ -127,7 +122,7 @@ export default function Router() {
         }}
       /> */}
     </Tab.Navigator>
-  )
+  );
 }
 
-const styles = StyleSheet.create({})
+const styles = StyleSheet.create({});

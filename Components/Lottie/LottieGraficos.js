@@ -2,13 +2,13 @@ import React from 'react';
 import {StyleSheet, Text, View, TouchableOpacity} from 'react-native';
 import LottieView from 'lottie-react-native';
 
-export default function LottieSend({navigation, Clien}) {
+export default function LottieGraficos({navigation, Clien}) {
   return (
     <>
 
         <LottieView
           style={styles.lottie}
-          source={require('../../assets/lottlie/51371-laptop-floating-animation-w-servers.json')}
+          source={require('../../assets/lottlie/8822-graficos-aleatorios-1.json')}
           autoPlay
         />
  
@@ -18,8 +18,8 @@ export default function LottieSend({navigation, Clien}) {
 
 const styles = StyleSheet.create({
   lottie: {
-    width: 100,
-    height: 100,
+    width: 250,
+    height: 250,
     marginRight: "auto",
     marginLeft: "auto",
     marginTop: "10%",

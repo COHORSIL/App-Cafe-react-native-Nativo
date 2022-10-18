@@ -91,14 +91,16 @@ export default function LoginPru(props) {
           ToastAndroid.show("Inicio de sesion Correctamente!", 3000);
         }
         if (responseJson.status === 2) {
-          console.log(responseJson.descripcion);
+    
           ToastAndroid.show("Usuario Incorrecto!", 3000);
           setIsVisible(false);
         } else {
+          ToastAndroid.show("Usuario Incorrecto!", 3000);
           setIsVisible(false);
         }
       })
       .catch((error) => {
+        ToastAndroid.show(`${error}`, 3000);
         setIsVisible(false);
       });
   };
@@ -139,7 +141,7 @@ export default function LoginPru(props) {
             animation="fadeInUp"
             delay={1400}
           >
-            Cafe
+            Beneficio
           </Animatable.Text>
 
           <View style={styles.bottomView}>

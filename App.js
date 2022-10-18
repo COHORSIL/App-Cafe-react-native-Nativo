@@ -29,6 +29,7 @@ export default function App() {
   const [refreshAPP, setrefreshAPP] = useState(false);
   const [Loading, setLoading] = useState(false);
   const [RefreshConsulta, setRefreshConsulta] = useState(false);
+  const [Sincron, setSincronizar] = useState(false)
 
   return (
     <refreshGlobal.Provider
@@ -41,6 +42,7 @@ export default function App() {
         setLoading,
         RefreshConsulta,
         setRefreshConsulta,
+        Sincron, setSincronizar
       }}>
       <TokenNotifications.Provider
         value={{
